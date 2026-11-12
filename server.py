@@ -33,6 +33,7 @@ from mesh_builder import build_relief, sample_colors
 from panorama import build_panorama
 import scene_assets
 import photo_enhance
+import ai_reconstruction
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -91,6 +92,7 @@ def index():
 @app.get("/api/status")
 def status():
     return jsonify(depth=depthmod.available_backend(),
+                   ai=ai_reconstruction.status(),
                    converter=converter_command(ROOT, ROOT) is not None,
                    enhance=photo_enhance.available_enhancements())
 
@@ -129,6 +131,15 @@ def generate():
         img.save(photo, quality=92)
         depth = depthmod.estimate_depth(str(photo))
         marca("profundidade (modelo de IA)")
+
+        semantic = None
+        try:
+            semantic = ai_reconstruction.analyze(img, str(proj / "semantica"))
+            meta_semantic = semantic
+            marca("segmentação semântica concluída")
+        except Exception as exc:
+            app.logger.warning("segmentação IA indisponível; usando fallback OpenCV: %s", exc)
+            meta_semantic = {"available": False, "error": str(exc), "requested_mode": ai_reconstruction.mode()}
         scene, info = build_relief(img, depth)
         (proj / "cenario.glb").write_bytes(scene.export(file_type="glb"))
         marca("relevo e exportação do GLB")
@@ -136,7 +147,7 @@ def generate():
         pano_info = build_panorama(img, suggest, str(proj / "panorama.jpg"))
         marca("cores e panorama")
         meta = dict(id=pid, relief=info, suggest=suggest, depth_backend=depthmod.available_backend(),
-                    panorama=f"/projects/{pid}/panorama.jpg", panorama_info=pano_info)
+                    ai_scene=meta_semantic, panorama=f"/projects/{pid}/panorama.jpg", panorama_info=pano_info)
 
         # Contexto da foto (rural/urban/beach/snow/mixed) — ajusta objetos no viewer
         try:
