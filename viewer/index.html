@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>photo2game · Foto para ambiente 3D</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #101418;
+               font-family: system-ui, sans-serif; color: #e8edf2; }
+  canvas { display: block; position: fixed; inset: 0; outline: none; }
+  #hud { position: fixed; top: 10px; left: 10px; width: 300px; background: rgba(14,18,24,.9);
+         padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.5;
+         user-select: none; z-index: 10; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #hud h1 { font-size: 14px; margin: 0 0 6px; }
+  #hud label { display: block; margin: 6px 0; }
+  #hud input[type=file] { width: 100%; margin-top: 4px; color: #e8edf2; }
+  #hud .modes { display: flex; gap: 6px; margin: 8px 0; }
+  #hud button { flex: 1; background: #26303b; color: #e8edf2; border: 1px solid #3a4654;
+                border-radius: 6px; padding: 5px 8px; cursor: pointer; font: inherit; }
+  #hud button.on { background: #2f6fd6; border-color: #2f6fd6; }
+  #hud details { margin-top: 6px; border-top: 1px solid #222a33; padding-top: 6px; }
+  #hud summary { cursor: pointer; }
+  #links a { color: #9cf; display: inline-block; margin: 2px 0; }
+  #status { color: #cfe3ff; }
+  #warn { color: #ffb86b; margin-top: 4px; }
+  .muted { opacity: .65; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three.module.js",
+    "three/addons/": "/vendor/addons/",
+    "rapier": "/vendor/rapier.es.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud">
+  <h1>photo2game</h1>
+  <label>1. Envie a foto do local
+    <input type="file" id="photo" accept="image/*">
+  </label>
+  <div id="photo-name" class="muted">Nenhuma foto selecionada</div>
+  <div class="modes">
+    <button id="mode-test" class="on">Testar</button>
+    <button id="mode-edit">Câmera livre</button>
+  </div>
+  <div class="muted">
+    Testar: WASD andar · Shift correr · Espaço pular · R voltar ao início · botão direito arrasta a câmera · roda aproxima.<br>
+    Ajustes: painel à direita. Ctrl+Z desfaz.
+  </div>
+  <div id="status">Iniciando...</div>
+  <div id="warn"></div>
+  <div id="links"></div>
+  <div class="muted"><span id="fps"></span></div>
+  <details>
+    <summary>Carregar GLB para testar (secundário)</summary>
+    <input type="file" id="glb" accept=".glb,.gltf">
+  </details>
+</div>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>
