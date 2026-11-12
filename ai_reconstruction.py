@@ -172,3 +172,48 @@ def extract_house(image: Image.Image, analysis: dict[str, Any], output_dir: str,
         "dist": float(distance), "x_m": float(x_m), "bbox": [x0, y0, x1, y1],
         "segmentation": "ai",
     }
+
+
+def extract_trees(image: Image.Image, analysis: dict[str, Any], output_dir: str,
+                  fov: float = 55.0, eye_height: float = 1.6, max_trees: int = 12) -> list[dict[str, Any]]:
+    """Extract separate tree silhouettes and project each to its estimated photo position."""
+    import cv2
+    mask_name = analysis.get("masks", {}).get("tree")
+    if not mask_name:
+        return []
+    path = Path(output_dir) / mask_name
+    if not path.exists():
+        return []
+    mask = np.asarray(Image.open(path).convert("L")) > 127
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), 8)
+    h, w = mask.shape
+    focal = w / (2.0 * np.tan(np.deg2rad(fov / 2.0)))
+    rgb = np.asarray(image.convert("RGB"))
+    candidates = []
+    for idx in range(1, count):
+        x, y, bw, bh, area = (int(v) for v in stats[idx])
+        if area < 0.0025 * w * h or bh < 0.09 * h or bw < 3:
+            continue
+        candidates.append((area, idx, x, y, bw, bh))
+    candidates.sort(reverse=True)
+    out = []
+    tree_dir = Path(output_dir) / "trees"
+    tree_dir.mkdir(parents=True, exist_ok=True)
+    for _, idx, x, y, bw, bh in candidates[:max_trees]:
+        alpha = (labels[y:y + bh, x:x + bw] == idx).astype(np.uint8) * 255
+        alpha_img = Image.fromarray(alpha).filter(ImageFilter.GaussianBlur(0.7))
+        rgba = Image.fromarray(rgb[y:y + bh, x:x + bw]).convert("RGBA")
+        rgba.putalpha(alpha_img)
+        filename = f"tree_{len(out)}.png"
+        rgba.save(tree_dir / filename)
+        base = y + bh
+        distance = focal * eye_height / max(base - h / 2.0, 8.0)
+        meters_per_pixel = distance / focal
+        out.append({
+            "file": filename, "width_m": float(bw * meters_per_pixel),
+            "height_m": float(bh * meters_per_pixel),
+            "x_m": float((x + bw / 2.0 - w / 2.0) * meters_per_pixel),
+            "z_m": float(-distance), "bbox": [x, y, x + bw, y + bh],
+            "segmentation": "ai",
+        })
+    return out
