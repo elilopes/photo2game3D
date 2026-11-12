@@ -162,3 +162,59 @@ Máscaras de cor, no espaço HSV: o verde cobre matiz de 65° a 170° com satura
 - `depth.py`, `mesh_builder.py`, `panorama.py`, `photo_enhance.py`: estimativa de profundidade e geração da malha.
 - `viewer/js/library.js`: objetos 3D procedurais e a função `scatter()` que os coloca por contexto.
 - `viewer/js/`: cena, física (Rapier), personagem e interface.
+
+
+## Reconstrução semântica avançada (local e nuvem)
+
+A geração agora possui uma etapa opcional de segmentação semântica com **Mask2Former**. Ela identifica regiões como edifícios, árvores, vegetação, caminhos e céu, grava máscaras PNG por classe e usa a máscara de edifício para produzir o recorte da fachada. Se o modelo ou o serviço remoto falhar, a geração continua pelo método OpenCV anterior.
+
+### Modos de execução
+
+Configure as variáveis de ambiente antes de iniciar `python server.py`:
+
+| Variável | Valores | Função |
+|---|---|---|
+| `PHOTO2GAME_AI_MODE` | `auto`, `local`, `cloud` | Seleciona o backend semântico. |
+| `PHOTO2GAME_SEGMENTATION_MODEL` | ID de modelo Hugging Face | Permite substituir o modelo padrão. |
+| `HF_TOKEN` | token Hugging Face | Autenticação para inferência na nuvem. |
+
+**Local (padrão sem token):**
+
+```powershell
+$env:PHOTO2GAME_AI_MODE = "local"
+pip install -r requirements.txt
+python server.py
+```
+
+Na primeira execução, Transformers baixa o modelo e mantém os pesos no cache local. O modelo padrão é `facebook/mask2former-swin-large-coco-panoptic`; recomenda-se GPU NVIDIA para reduzir o tempo de inferência. Em CPU, a primeira execução e imagens grandes podem demorar.
+
+**Nuvem (Hugging Face Inference):**
+
+```powershell
+$env:PHOTO2GAME_AI_MODE = "cloud"
+$env:HF_TOKEN = "hf_seu_token"
+python server.py
+```
+
+O token deve ter permissão para usar os modelos de inferência. O provedor/modelo precisa oferecer a tarefa de segmentação de imagem. O conteúdo da foto é enviado ao serviço remoto nesse modo.
+
+**Automático:**
+
+```powershell
+$env:PHOTO2GAME_AI_MODE = "auto"
+$env:HF_TOKEN = "hf_seu_token" # opcional; com token, prioriza nuvem
+python server.py
+```
+
+Consulte `GET /api/status` para verificar o backend selecionado, disponibilidade local/remota e modelo configurado.
+
+### O que muda no pipeline
+
+- A segmentação semântica é executada após o pré-processamento da fotografia.
+- Máscaras são armazenadas em `projects/<id>/semantica/` e descritas em `meta.json` no campo `ai_scene`.
+- A fachada usa o recorte da máscara de edifício, preservando a silhueta segmentada; quando não existe máscara adequada, o recorte OpenCV continua como fallback.
+- A textura de chão não é mais repetida em ladrilhos pelo mapa.
+- Árvores detectadas não são clonadas para preencher artificialmente o perímetro.
+- O proxy de fachada tem profundidade reduzida, evitando uma caixa exagerada com uma única fotografia aplicada na face frontal.
+
+> Limitação geométrica: uma única foto não revela as laterais, o fundo ou a geometria oculta da construção. A segmentação melhora a separação dos objetos, mas não substitui fotogrametria multi-view nem garante uma reconstrução volumétrica exata. O viewer, a física Rapier e a exportação continuam usando o pipeline Three.js/GLB existente.
