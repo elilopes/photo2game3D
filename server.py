@@ -204,10 +204,17 @@ def generate():
         # Casa principal da foto (recorte com transparência, usado como fachada 3D no viewer)
         try:
             gl_house = gl if gl is not None else int(img.size[1] * 0.73)
-            house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
+            house = ai_reconstruction.extract_house(img, semantic, str(proj / "semantica"), fov=fov) if semantic else None
             if house:
-                meta["house"] = dict(url=f"/projects/{pid}/casa/{house['file']}", width_m=house["width_m"],
-                                     height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"])
+                meta["house"] = dict(url=f"/projects/{pid}/semantica/{house['file']}", width_m=house["width_m"],
+                                     height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"],
+                                     bbox=house.get("bbox"), segmentation="ai")
+            else:
+                house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
+                if house:
+                    meta["house"] = dict(url=f"/projects/{pid}/casa/{house['file']}", width_m=house["width_m"],
+                                         height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"],
+                                         segmentation="opencv")
         except Exception as exc:
             app.logger.warning("extract_house falhou: %s", exc)
 
