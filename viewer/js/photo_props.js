@@ -18,9 +18,9 @@ const WALL_T = 0.5;   // espessura (m) — só afeta o colisor
 // ---- Piso retificado -----------------------------------------------------------------------------
 export function buildSquareFloor(floorTex, widthM, depthM, squareSize = 60) {
   const tex = floorTex.clone ? floorTex.clone() : floorTex;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  // Garante que a repetição está nas proporções corretas do ladrilho real
-  tex.repeat.set(squareSize / widthM, squareSize / depthM);
+  // Uma amostra de chão deve ser usada uma única vez, nunca ladrilhada pelo mapa.
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.repeat.set(1, 1);
   tex.needsUpdate = true;
   tex.anisotropy = 8;
 
@@ -126,15 +126,14 @@ export function buildTrees(treeList, squareSize = 60) {
   group.name = 'arvores_foto';
   if (!treeList || treeList.length === 0) return group;
 
-  // Cria mais instâncias por repetição para cobrir o perímetro com pelo menos N árvores.
-  // margin=1 → árvores quase na borda, fora do espaço caminhável.
-  const minTrees = Math.max(treeList.length, Math.ceil(squareSize / 10));
-  const positions = layoutTrees(minTrees, squareSize, 1);
+  // Uma instância por árvore segmentada: nunca clonar a lista para preencher o mapa.
+  const positions = layoutTrees(treeList.length, squareSize, 1);
 
-  for (let i = 0; i < positions.length; i++) {
-    const info = treeList[i % treeList.length];
+  for (let i = 0; i < treeList.length; i++) {
+    const info = treeList[i];
+    const pos = Number.isFinite(info.x_m) && Number.isFinite(info.z_m) ? info : positions[i];
     const bb = buildBillboard(info.url, info.width_m, info.height_m);
-    bb.position.set(positions[i].x, info.height_m / 2, positions[i].z);
+    bb.position.set(pos.x_m ?? pos.x, info.height_m / 2, pos.z_m ?? pos.z);
     // Leve variação de escala para não parecer clonado
     const jit = 0.85 + (i % 5) * 0.07;
     bb.scale.setScalar(jit);
