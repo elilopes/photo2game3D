@@ -1,0 +1,17 @@
+flask
+numpy
+pillow
+trimesh
+opencv-python-headless
+# IA de profundidade (necessária para gerar o relevo a partir da foto):
+torch
+transformers
+# Melhora de foto: super-resolução ONNX (Real-ESRGAN) e melhora de iluminação (SCI)
+# Sem onnxruntime o sistema usa Lanczos + CLAHE OpenCV (sempre disponível)
+# onnxruntime        # CPU
+# onnxruntime-gpu    # GPU NVIDIA (substitui o anterior)
+# Opcional: permite converter para FBX/.blend sem instalar o Blender separado (Python 3.11)
+# bpy
+# Opcional: outpainting das laterais por difusão (PHOTO2GAME_OUTPAINT=sd)
+# diffusers
+# accelerate
