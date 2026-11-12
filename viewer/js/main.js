@@ -220,7 +220,7 @@ async function uploadPhoto(file) {
   if (data.meta.house) next.objects = next.objects.filter(o => o.type !== 'house' && o.type !== 'rowhouse');   // a casa da foto substitui as genéricas
   setProject(next, data.id);
   replaceUrl(data.id);
-  setStatus(`Ambiente pronto · ${S.objects.length} objetos · profundidade: ${data.meta.depth_backend}`);
+  setStatus(`Ambiente pronto · ${S.objects.length} objetos · profundidade: ${data.meta.depth_backend} · segmentação: ${data.meta.ai_scene?.provider || 'OpenCV (fallback)'}`);
   $links.innerHTML = '';
 }
 
@@ -274,6 +274,7 @@ async function checkServer() {
     const s = await api('/api/status');
     const warn = [];
     if (s.depth === 'missing') warn.push('Modelo de profundidade não instalado: pip install torch transformers.');
+    if (s.ai && !s.ai.available) warn.push('Segmentação semântica indisponível no modo ' + s.ai.mode + '. Configure o modelo local ou HF_TOKEN para nuvem; o sistema usará o recorte OpenCV.');
     if (!s.converter) warn.push('Blender não encontrado: o export gera só GLB e OBJ. Defina BLENDER=/caminho/blender.');
     setWarn(warn);
   } catch {
