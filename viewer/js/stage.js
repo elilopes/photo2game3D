@@ -175,7 +175,9 @@ export class Stage {
     if (this.nodes.house) { this.nodes.house.removeFromParent(); disposeTree(this.nodes.house); this.nodes.house = null; }
     if (!info) return;
 
-    const depth = 6;
+    // A fotografia fornece a fachada, não seis metros de informação lateral.
+    // Uma profundidade curta evita a aparência de caixa com uma imagem colada na frente.
+    const depth = Math.max(0.35, Math.min(0.9, info.width_m * 0.06));
     const tex = new THREE.TextureLoader().load(info.url);
     tex.colorSpace = THREE.SRGBColorSpace;
     const front = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.32, transparent: true, roughness: 0.9 });
