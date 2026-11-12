@@ -192,11 +192,21 @@ def generate():
             if context in ('urban', 'alpine', 'indoor', 'cave'):      # fachada verde / tufos de grama não são árvores; interior e caverna não têm
                 raise RuntimeError(f"extração de árvores pulada no contexto '{context}'")
             trees_dir = proj / "arvores"
-            tree_list = scene_assets.extract_trees(img, gl_veg, str(trees_dir), fov=fov)
-            meta["trees"] = [
-                dict(url=f"/projects/{pid}/arvores/{t['file']}", width_m=t["width_m"], height_m=t["height_m"])
-                for t in tree_list
-            ]
+            tree_list = ai_reconstruction.extract_trees(img, semantic, str(proj / "semantica"), fov=fov) if semantic else []
+            if tree_list:
+                meta["trees"] = [
+                    dict(url=f"/projects/{pid}/semantica/trees/{t['file']}",
+                         width_m=t["width_m"], height_m=t["height_m"],
+                         x_m=t["x_m"], z_m=t["z_m"], bbox=t["bbox"])
+                    for t in tree_list
+                ]
+            else:
+                tree_list = scene_assets.extract_trees(img, gl_veg, str(trees_dir), fov=fov)
+                meta["trees"] = [
+                    dict(url=f"/projects/{pid}/arvores/{t['file']}",
+                         width_m=t["width_m"], height_m=t["height_m"])
+                    for t in tree_list
+                ]
         except Exception as exc:
             app.logger.warning("extract_trees falhou: %s", exc)
 
