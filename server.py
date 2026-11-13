@@ -36,6 +36,7 @@ import photo_enhance
 import ai_reconstruction
 import building_reconstruction
 import image_to_3d
+import model_manager
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -49,7 +50,7 @@ PID_RE = re.compile(r"^[0-9a-f]{8}$")
 
 PROJECTS.mkdir(exist_ok=True)
 app = Flask(__name__, static_folder=str(VIEWER), static_url_path="")
-app.config.update(MAX_CONTENT_LENGTH=256 * 1024 * 1024, SEND_FILE_MAX_AGE_DEFAULT=0)
+app.config.update(MAX_CONTENT_LENGTH=20 * 1024 * 1024 * 1024, SEND_FILE_MAX_AGE_DEFAULT=0)
 
 
 @app.errorhandler(Exception)
@@ -89,6 +90,35 @@ def converter_command(src: pathlib.Path, out: pathlib.Path):
 @app.get("/")
 def index():
     return send_from_directory(VIEWER, "index.html")
+
+
+@app.get("/api/models")
+def models_status():
+    return jsonify(models=model_manager.model_status())
+
+
+@app.post("/api/models/download")
+def download_model():
+    data = request.get_json(silent=True) or {}
+    name = data.get("model", "")
+    try:
+        result = model_manager.download_model(name)
+        return jsonify(ok=True, model=result)
+    except Exception as exc:
+        app.logger.exception("Falha ao baixar modelo %s", name)
+        return jsonify(error=f"{type(exc).__name__}: {exc}"), 500
+
+
+@app.post("/api/models/import")
+def import_model():
+    name = request.form.get("model", "")
+    files = request.files.getlist("files")
+    if not files:
+        abort(400, "Selecione a pasta do modelo para importar.")
+    try:
+        return jsonify(ok=True, **model_manager.import_model_files(name, files))
+    except ValueError as exc:
+        abort(400, str(exc))
 
 
 @app.get("/api/status")

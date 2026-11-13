@@ -453,6 +453,56 @@ function frame(now) {
   }
 }
 
+// ---------- gerenciamento dos pesos dos modelos -----------------------------------------------
+const $modelChoice = $('model-choice'), $modelFolder = $('model-folder');
+const $modelStatus = $('model-status'), $modelDownload = $('model-download');
+const $modelImport = $('model-import'), $modelRefresh = $('model-refresh');
+
+async function refreshModelStatus() {
+  try {
+    const data = await api('/api/models');
+    $modelStatus.textContent = Object.entries(data.models).map(([key, model]) =>
+      `${model.label}: ${model.exists ? 'arquivos encontrados' : 'não instalado'}\nPasta: ${model.path}${model.size_bytes ? `\nTamanho: ${(model.size_bytes / 1024 ** 3).toFixed(2)} GB` : ''}`
+    ).join('\n\n');
+  } catch (error) { $modelStatus.textContent = 'Não foi possível consultar os modelos: ' + error.message; }
+}
+
+$modelDownload?.addEventListener('click', async () => {
+  const model = $modelChoice.value;
+  $modelDownload.disabled = true;
+  $modelStatus.textContent = 'Baixando arquivos oficiais. Aguarde; o download pode levar bastante tempo...';
+  try {
+    const result = await api('/api/models/download', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
+    });
+    $modelStatus.textContent = `Download concluído: ${result.model.label}\nPasta: ${result.model.path}`;
+    await refreshModelStatus();
+  } catch (error) {
+    $modelStatus.textContent = 'Falha no download: ' + error.message +
+      '\nVerifique a conexão, Git e os termos de acesso do modelo no Hugging Face.';
+  } finally { $modelDownload.disabled = false; }
+});
+
+$modelImport?.addEventListener('click', async () => {
+  const files = [...($modelFolder.files || [])];
+  if (!files.length) { $modelStatus.textContent = 'Selecione a pasta do modelo primeiro.'; return; }
+  const fd = new FormData();
+  fd.append('model', $modelChoice.value);
+  for (const file of files) fd.append('files', file, file.webkitRelativePath || file.name);
+  $modelImport.disabled = true;
+  $modelStatus.textContent = `Importando ${files.length} arquivo(s). Aguarde o envio...`;
+  try {
+    const result = await api('/api/models/import', { method: 'POST', body: fd });
+    $modelStatus.textContent = `Importação concluída: ${result.files_imported} arquivo(s)\nPasta: ${result.path}`;
+    $modelFolder.value = '';
+    await refreshModelStatus();
+  } catch (error) { $modelStatus.textContent = 'Falha na importação: ' + error.message; }
+  finally { $modelImport.disabled = false; }
+});
+$modelRefresh?.addEventListener('click', refreshModelStatus);
+refreshModelStatus();
+
 // ---------- eventos ----------------------------------------------------------------------------
 $photo.addEventListener('change', e => {
   const f = e.target.files[0];

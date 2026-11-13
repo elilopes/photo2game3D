@@ -19,6 +19,9 @@
                 border-radius: 6px; padding: 5px 8px; cursor: pointer; font: inherit; }
   #hud button.on { background: #2f6fd6; border-color: #2f6fd6; }
   #hud details { margin-top: 6px; border-top: 1px solid #222a33; padding-top: 6px; }
+  #hud .model-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
+  #hud .model-actions button { min-width: 0; }
+  #model-status { white-space: pre-wrap; color: #b9d8ff; margin: 5px 0; }
   #hud summary { cursor: pointer; }
   #links a { color: #9cf; display: inline-block; margin: 2px 0; }
   #status { color: #cfe3ff; }
@@ -54,6 +57,25 @@
   <div id="warn"></div>
   <div id="links"></div>
   <div class="muted"><span id="fps"></span></div>
+  <details id="model-manager">
+    <summary>Gerenciar modelos de IA (InstantMesh / Hunyuan3D)</summary>
+    <label>Modelo
+      <select id="model-choice" style="width:100%;margin-top:4px;background:#202a35;color:#e8edf2;padding:5px;border-radius:5px">
+        <option value="instantmesh">InstantMesh — objetos e árvores</option>
+        <option value="hunyuan3d">Hunyuan3D-2 — edificações</option>
+      </select>
+    </label>
+    <div class="model-actions">
+      <button id="model-download">Baixar automaticamente</button>
+      <button id="model-refresh">Verificar modelos</button>
+    </div>
+    <label>Importar pasta baixada manualmente
+      <input id="model-folder" type="file" webkitdirectory directory multiple>
+    </label>
+    <button id="model-import" style="width:100%;margin-top:5px">Importar pasta selecionada</button>
+    <div id="model-status">Verificando modelos...</div>
+    <div class="muted">Os arquivos ficam em models/ no projeto. O download pode ocupar vários GB; alguns modelos exigem aceitar os termos/licença no Hugging Face antes de baixar.</div>
+  </details>
   <details>
     <summary>Carregar GLB para testar (secundário)</summary>
     <input type="file" id="glb" accept=".glb,.gltf">
