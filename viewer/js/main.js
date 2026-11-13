@@ -538,6 +538,25 @@ for (const k of modelKeys) {
   });
 }
 refreshModelStatus();
+
+$('world-reconstruct')?.addEventListener('click', async () => {
+  const target=$('world-results');
+  if (!pid || pid==='novo') { target.textContent='Envie uma foto e gere um projeto antes de iniciar a reconstrução de cena.'; return; }
+  const button=$('world-reconstruct'); button.disabled=true; target.textContent='Executando serviços de cena. Isso pode levar vários minutos...';
+  try {
+    const result=await api('/api/world/reconstruct/'+pid,{method:'POST'});
+    target.replaceChildren();
+    for(const item of result.results || []) {
+      const line=document.createElement('p'); line.textContent=item.label+' · '+item.status+' · '+(item.format || item.kind || 'artefato'); target.appendChild(line);
+      const url=item.preview_url || item.artifact_url;
+      if(url) { const link=document.createElement('a'); link.href=url; link.target='_blank'; link.rel='noopener'; link.textContent='Abrir resultado '+item.label; target.appendChild(link); }
+    }
+    for(const [key,error] of Object.entries(result.failures || {})) { const line=document.createElement('p'); line.textContent=key+': '+error; target.appendChild(line); }
+    if(!(result.results || []).length && !Object.keys(result.failures || {}).length) target.textContent='Nenhum motor de cena habilitado ou configurado.';
+  } catch(error) { target.textContent='Falha na reconstrução de cena: '+error.message; }
+  finally { button.disabled=false; }
+});
+
 // ---------- verificação de dependências -------------------------------------------------------
 const $depsModal = $('deps-modal');
 function setDepsModal(open) {
