@@ -230,6 +230,7 @@ async function uploadPhoto(file) {
   stage.setPanorama(null);   // céu só com degradê; panorama da foto removido
   await loadPhotoAssets(data.meta);
   await loadHouse(data.meta);   // GLB volumétrico ou fallback legado
+  renderReconstructionReview(data.meta, data.id);
 
   const next = newState(data.meta.suggest);
   // Quando há chão quadrado, desliga o terreno procedural e o relevo (evita "parede de foto")
@@ -256,6 +257,7 @@ async function openProject(id) {
   stage.setPanorama(null);   // céu só com degradê
   await loadPhotoAssets(meta);
   await loadHouse(meta);
+  renderReconstructionReview(meta, id);
   const next = saved ? migrate(saved) : newState(meta?.suggest);
   if (!saved) {
     if (meta?.floor) {
@@ -453,9 +455,51 @@ function frame(now) {
   }
 }
 
+
+// ---------- comparação e escolha manual dos motores -------------------------------------------
+const $review = $('reconstruction-review'), $reviewContent = $('reconstruction-review-content');
+$('reconstruction-review-close')?.addEventListener('click', () => $review?.classList.remove('open'));
+function renderReconstructionReview(meta, projectId) {
+  if (!$review || !$reviewContent) return;
+  const groups = [];
+  if (meta?.house?.candidates?.length) groups.push({kind:'house',index:null,label:'Edificação',item:meta.house});
+  for (const kind of ['photo_objects','trees']) {
+    (meta?.[kind] || []).forEach((item,index) => {
+      if (item.candidates?.length) groups.push({kind,index,label:(item.label || (kind==='trees'?'Árvore':'Objeto'))+' '+(index+1),item});
+    });
+  }
+  if (!groups.length) { $review.classList.remove('open'); return; }
+  $reviewContent.replaceChildren();
+  for (const group of groups) {
+    const heading=document.createElement('h3'); heading.textContent=group.label; $reviewContent.appendChild(heading);
+    const note=document.createElement('p'); note.className='muted'; note.textContent='Escolhido automaticamente: '+(group.item.reconstruction || '—')+' · pontuação geométrica (não mede semelhança visual)'; $reviewContent.appendChild(note);
+    for (const candidate of group.item.candidates) {
+      const row=document.createElement('div'); row.className='candidate-row';
+      const info=document.createElement('div');
+      const name=document.createElement('strong'); name.textContent=candidate.engine;
+      const detail=document.createElement('small'); const ev=candidate.evaluation || {};
+      detail.textContent=ev.valid ? ('Nota '+ev.score+'/100 · '+(ev.faces || 0)+' faces · watertight '+Math.round((ev.watertight_ratio || 0)*100)+'%') : 'Malha inválida ou não avaliada';
+      info.append(name,detail);
+      const preview=document.createElement('a'); preview.href='/preview.html?url='+encodeURIComponent(candidate.url); preview.target='_blank'; preview.rel='noopener'; preview.textContent='Visualizar';
+      const choose=document.createElement('button'); choose.textContent=group.item.reconstruction===candidate.engine?'Selecionado':'Usar este';
+      choose.disabled=!ev.valid || group.item.reconstruction===candidate.engine;
+      choose.addEventListener('click',async()=>{
+        choose.disabled=true;
+        try {
+          await api('/api/reconstruction/select/'+projectId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:group.kind,index:group.index,engine:candidate.engine})});
+          await openProject(projectId);
+          setStatus('Reconstrução substituída por '+candidate.engine+'.');
+        } catch(error) { setStatus('Não foi possível substituir: '+error.message); choose.disabled=false; }
+      });
+      row.append(info,preview,choose); $reviewContent.appendChild(row);
+    }
+  }
+  $review.classList.add('open');
+}
+
 // ---------- gerenciamento dos modelos de IA ---------------------------------------------------
 const $aiModal = $('ai-modal'), $aiModalStatus = $('ai-modal-status');
-const modelKeys = ['instantmesh', 'hunyuan3d'];
+const modelKeys = ['triposr', 'instantmesh', 'hunyuan3d21', 'trellis2', 'lyra2', 'vggt'];
 function setAiModal(open) { $aiModal.classList.toggle('open', open); if (open) refreshModelStatus(); }
 $('manage-ai-open')?.addEventListener('click', () => setAiModal(true));
 $('ai-modal-close')?.addEventListener('click', () => setAiModal(false));
