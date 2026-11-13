@@ -31,7 +31,7 @@ def _recognized(name: str, path: Path) -> bool:
       "vggt": (path/"vggt").is_dir(),
     }
     # Lyra is a multi-stage world pipeline; source presence is distinct from checkpoint readiness.
-    return bool(markers.get(name)) and (_has_weights(path) if name != "lyra2" else True)
+    return bool(markers.get(name)) and _has_weights(path)
 
 def model_status():
     result={}
@@ -39,7 +39,8 @@ def model_status():
         path=MODELS/item["directory"]
         files=[p for p in path.rglob('*') if p.is_file()] if path.exists() else []
         result[key]={"label":item["label"],"path":str(path),"exists":path.exists(),
-          "recognized":_recognized(key,path),"size_bytes":sum(p.stat().st_size for p in files),
+          "recognized":_recognized(key,path),"code_present":bool(path.exists() and any((path/m).exists() for m in ({"triposr":["run.py"],"instantmesh":["run.py"],"hunyuan3d21":["gradio_app.py"],"trellis2":["app.py"],"lyra2":["Lyra-2"],"vggt":["vggt"]}.get(key,[])))),
+          "weights_present":_has_weights(path) if path.exists() else False,"size_bytes":sum(p.stat().st_size for p in files),
           "kind":item["kind"],"repository":item["repo"],"hf_repo":item["hf_repo"]}
     return result
 
