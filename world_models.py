@@ -5,6 +5,7 @@ from pathlib import Path
 import requests
 
 ENGINES = {
+ "hunyuanworld1": {"url_env":"HUNYUANWORLD1_API_URL","token_env":"HUNYUANWORLD1_API_TOKEN","label":"Tencent HunyuanWorld-1","kind":"explorable_world"},
  "lyra2": {"url_env":"LYRA2_API_URL","token_env":"LYRA2_API_TOKEN","label":"NVIDIA Lyra 2.0","kind":"explorable_world"},
  "vggt": {"url_env":"VGGT_API_URL","token_env":"VGGT_API_TOKEN","label":"Meta VGGT-1B","kind":"scene_geometry"},
 }
