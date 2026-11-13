@@ -22,7 +22,20 @@
   #hud .model-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
   #hud .model-actions button { min-width: 0; }
   #model-status { white-space: pre-wrap; color: #b9d8ff; margin: 5px 0; }
-  #manage-ai-open { width:100%; margin:8px 0; background:#245fba; border-color:#397bd8; }
+  #manage-ai-open, #check-dependencies-open { width:100%; margin:5px 0; background:#245fba; border-color:#397bd8; }
+  #deps-modal { display:none; position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.8); align-items:center; justify-content:center; padding:18px; }
+  #deps-modal.open { display:flex; }
+  #deps-modal-card { width:min(720px,100%); max-height:88vh; overflow:auto; background:#151d27; border:1px solid #3a4654; border-radius:14px; padding:18px; box-shadow:0 18px 70px #000a; }
+  #deps-modal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  #deps-modal-head h2 { margin:0; font-size:18px; }
+  #deps-close { flex:0 0 auto; width:36px; }
+  #deps-results { margin-top:12px; }
+  .dep-group { border:1px solid #344252; border-radius:9px; padding:10px; margin:10px 0; }
+  .dep-row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-bottom:1px solid #293542; }
+  .dep-row:last-child { border-bottom:0; }
+  .dep-ok { color:#65dc91; font-weight:700; }
+  .dep-fail { color:#ffbd69; font-weight:700; }
+  .dep-detail { color:#aebdca; font-size:11px; display:block; }
   #ai-modal { display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.78); align-items:center; justify-content:center; padding:18px; }
   #ai-modal.open { display:flex; }
   #ai-modal-card { width:min(760px,100%); max-height:90vh; overflow:auto; background:#151d27; border:1px solid #3a4654; border-radius:14px; padding:18px; box-shadow:0 18px 70px #000a; }
@@ -74,6 +87,15 @@
   <div id="links"></div>
   <div class="muted"><span id="fps"></span></div>
   <button id="manage-ai-open">Gerenciar IA</button>
+  <button id="check-dependencies-open">Verificar dependências</button>
+  <div id="deps-modal" role="dialog" aria-modal="true" aria-labelledby="deps-title"><div id="deps-modal-card">
+    <div id="deps-modal-head"><h2 id="deps-title">Verificação de dependências</h2><button id="deps-close" aria-label="Fechar">✕</button></div>
+    <p class="muted">Verifica os pacotes Python, ferramentas externas e arquivos do visualizador necessários ao photo2game.</p>
+    <button id="deps-run" style="width:100%">Executar verificação</button>
+    <div id="deps-summary" class="muted">Clique em “Executar verificação” para começar.</div>
+    <div id="deps-results"></div>
+  </div></div>
+
   <div id="ai-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title"><div id="ai-modal-card">
     <div id="ai-modal-head"><h2 id="ai-modal-title">Gerenciar modelos de IA</h2><button id="ai-modal-close" aria-label="Fechar">✕</button></div>
     <p class="muted">Baixe os arquivos oficiais do Hugging Face e o código do GitHub, ou importe separadamente a pasta baixada de cada modelo.</p>
