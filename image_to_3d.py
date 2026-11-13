@@ -35,6 +35,11 @@ def status() -> dict[str, Any]:
     hy_remote = hy_url.startswith(("http://", "https://"))
     return {
         "mode": mode,
+        "triposr": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("TRIPOSR_DIR","models/TripoSR"))/"run.py").is_file(),"remote_configured":bool(os.getenv("TRIPOSR_API_URL")),"repository":"https://github.com/VAST-AI-Research/TripoSR"},
+        "trellis2": {"provider":"http-api","configured":bool(os.getenv("TRELLIS2_API_URL")),"repository":"https://github.com/microsoft/TRELLIS.2","model":"microsoft/TRELLIS.2-4B"},
+        "hunyuan3d21": {"provider":"http-api","configured":bool(os.getenv("HUNYUAN3D21_API_URL")),"repository":"https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1"},
+        "lyra2": {"provider":"http-api","configured":bool(os.getenv("LYRA2_API_URL")),"repository":"https://github.com/nv-tlabs/lyra","model":"nvidia/Lyra-2.0","output_kind":"explorable_world"},
+        "vggt": {"provider":"http-api","configured":bool(os.getenv("VGGT_API_URL")),"repository":"https://github.com/facebookresearch/vggt","model":"facebook/VGGT-1B","output_kind":"scene_geometry"},
         "instantmesh": {
             "provider": "http-api" if mode == "cloud" else "subprocess",
             "local_configured": instant_local,
