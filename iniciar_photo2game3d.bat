@@ -51,6 +51,14 @@ goto install
 set "PHOTO2GAME_AI_MODE=cloud"
 set "PHOTO2GAME_3D_MODE=cloud"
 echo.
+echo --- Segmentacao semantica na nuvem ---
+set /p "HF_TOKEN=Token Hugging Face (necessario para segmentacao): "
+if not defined HF_TOKEN (
+  echo ERRO: informe o token Hugging Face para segmentacao.
+  pause
+  exit /b 1
+)
+echo.
 echo --- Hunyuan3D na nuvem ---
 set /p "HUNYUAN3D_API_URL=URL completa do endpoint Hunyuan3D /generate: "
 if not defined HUNYUAN3D_API_URL (
