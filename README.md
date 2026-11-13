@@ -344,8 +344,8 @@ O painel **Gerenciar IA** reconhece seis motores. O download de código/pesos é
 |---|---|---|
 | TripoSR | Objetos isolados | Runner local via TRIPOSR_DIR / TRIPOSR_PYTHON, ou HTTP |
 | InstantMesh | Alternativa para os mesmos objetos | Runner local existente, ou HTTP |
-| Tencent Hunyuan3D-2.1 | Edificações | Serviço HTTP dedicado 2.1 |
-| Microsoft TRELLIS.2-4B | Alternativa para edificações | Serviço HTTP dedicado |
+| Tencent Hunyuan3D-2.1 | Edificações | Runner local isolado ou serviço HTTP dedicado 2.1 |
+| Microsoft TRELLIS.2-4B | Alternativa para edificações | Runner local isolado ou serviço HTTP |
 | NVIDIA Lyra 2.0 | Mundo 3D explorável | Serviço HTTP de cena; não é candidato de malha GLB |
 | Meta VGGT-1B | Câmeras, profundidade e geometria da cena | Serviço HTTP de geometria; não é candidato de malha GLB |
 
@@ -362,7 +362,7 @@ Defina estas variáveis no terminal antes de iniciar o servidor ou no arquivo de
 
 Cada motor pode ser desligado com PHOTO2GAME_ENABLE_TRIPOSR=0, PHOTO2GAME_ENABLE_INSTANTMESH=0, PHOTO2GAME_ENABLE_HUNYUAN3D21=0, PHOTO2GAME_ENABLE_TRELLIS2=0, PHOTO2GAME_ENABLE_LYRA2=0 ou PHOTO2GAME_ENABLE_VGGT=0.
 
-Os serviços HTTP de malha recebem multipart/form-data com o campo image e retornam GLB binário ou JSON contendo glb_base64 (ou model_base64). O adaptador de Lyra/VGGT recebe o mesmo campo e espera um manifesto JSON com artifact_base64 ou artifact_url, além de artifact_format, preview_url e metadata quando disponíveis. Isso mantém as dependências CUDA de cada projeto isoladas do servidor Flask.
+TRELLIS.2 e Hunyuan3D-2.1 podem executar em ambientes Python locais separados (TRELLIS2_PYTHON / HUNYUAN3D21_PYTHON e diretórios *_DIR) ou por serviço remoto. Os serviços HTTP de malha recebem multipart/form-data com o campo image e retornam GLB binário ou JSON contendo glb_base64 (ou model_base64). O adaptador de Lyra/VGGT recebe o mesmo campo e espera um manifesto JSON com artifact_base64 ou artifact_url, além de artifact_format, preview_url e metadata quando disponíveis. Isso mantém as dependências CUDA de cada projeto isoladas do servidor Flask.
 
 ### Comparação e seleção manual
 
