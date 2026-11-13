@@ -248,7 +248,7 @@ Também é possível configurar manualmente as variáveis de ambiente e executar
 
 O Photo2Game3D pode usar motores especializados para substituir billboards e proxies por malhas 3D reais:
 
-- **InstantMesh**: objetos isolados e árvores extraídas pela segmentação semântica. O servidor processa até quatro árvores por fotografia por padrão (`PHOTO2GAME_MAX_INSTANTMESH_TREES`); se o modelo falhar, mantém o billboard segmentado.
+- **InstantMesh**: árvores e objetos isolados (mobiliário, veículos, animais e outros elementos detectados) extraídos pela segmentação semântica. Processa até quatro árvores e quatro objetos por fotografia por padrão (`PHOTO2GAME_MAX_INSTANTMESH_TREES` e `PHOTO2GAME_MAX_INSTANTMESH_OBJECTS`); se o modelo falhar, mantém o billboard segmentado.
 - **Hunyuan3D**: fachada isolada da edificação enviada ao serviço Image-to-3D com geração de textura habilitada. O GLB gerado é dimensionado e posicionado no viewer. Se a API falhar, a reconstrução procedural e o recorte OpenCV continuam disponíveis.
 - **Viewer**: carrega os GLBs gerados, mantém o sistema Three.js/Rapier e inclui as malhas na exportação da cena.
 
@@ -312,6 +312,7 @@ O endpoint Hunyuan3D deve seguir a API oficial: POST JSON com `image` em base64 
 | `HUNYUAN3D_API_URL` | Endpoint `/generate` do Hunyuan3D |
 | `HUNYUAN3D_API_TOKEN` | Token Bearer opcional |
 | `PHOTO2GAME_MAX_INSTANTMESH_TREES` | Limite de árvores processadas por imagem (padrão 4) |
+| `PHOTO2GAME_MAX_INSTANTMESH_OBJECTS` | Limite de objetos não arbóreos processados por imagem (padrão 4) |
 
 `GET /api/status` expõe configuração e disponibilidade declarada dos motores. Uma API remota configurada não significa que o serviço esteja saudável; confirme também o endpoint do modelo.
 
