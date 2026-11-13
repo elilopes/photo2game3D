@@ -50,7 +50,7 @@ PID_RE = re.compile(r"^[0-9a-f]{8}$")
 
 PROJECTS.mkdir(exist_ok=True)
 app = Flask(__name__, static_folder=str(VIEWER), static_url_path="")
-app.config.update(MAX_CONTENT_LENGTH=256 * 1024 * 1024, SEND_FILE_MAX_AGE_DEFAULT=0)
+app.config.update(MAX_CONTENT_LENGTH=20 * 1024 * 1024 * 1024, SEND_FILE_MAX_AGE_DEFAULT=0)
 
 
 @app.errorhandler(Exception)
