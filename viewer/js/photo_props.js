@@ -145,12 +145,15 @@ export function buildTrees(treeList, squareSize = 60) {
     const info = treeList[i];
     const pos = Number.isFinite(info.x_m) && Number.isFinite(info.z_m) ? info : positions[i];
     if (info.model) {
-      const model = info.model;
+      // Clona a hierarquia sem duplicar buffers: _squareAssets conserva o original
+      // para que o palco possa reconstruir a área sem reutilizar geometrias descartadas.
+      const model = info.model.clone(true);
       model.name = `arvore_instantmesh_${i}`;
       fitGeneratedModel(model, info.width_m, info.height_m);
       model.position.x += pos.x_m ?? pos.x;
       model.position.z += pos.z_m ?? pos.z;
       model.traverse(o => {
+        o.userData.sharedAsset = true;
         if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
       });
       group.add(model);
