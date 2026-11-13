@@ -106,6 +106,19 @@
   <div id="ai-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title"><div id="ai-modal-card">
     <div id="ai-modal-head"><h2 id="ai-modal-title">Gerenciar modelos de IA</h2><button id="ai-modal-close" aria-label="Fechar">✕</button></div>
     <p class="muted">Baixe os arquivos oficiais do Hugging Face e o código do GitHub, ou importe separadamente a pasta baixada de cada modelo.</p>
+    <h3>Modelos de IA integrados</h3>
+    <p class="muted">Estes modelos fazem parte do processamento principal da imagem. São informativos e não possuem opção de desativação neste modal.</p>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Depth Anything V2 Small</span><span id="depth-ai-check" class="ai-missing">○ Verificando</span></div>
+      <p>Modelo de estimativa monocular de profundidade, usado para gerar o mapa de profundidade que orienta o relevo 3D da cena.</p>
+      <div id="depth-ai-info" class="muted">Modelo: depth-anything/Depth-Anything-V2-Small-hf</div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Mask2Former Swin Large (COCO Panoptic)</span><span id="segmentation-ai-check" class="ai-missing">○ Verificando</span></div>
+      <p>Modelo de segmentação semântica/panóptica, usado para identificar edificações, árvores, chão e objetos na foto. Pode operar localmente com Transformers ou pela API de inferência do Hugging Face.</p>
+      <div id="segmentation-ai-info" class="muted">Modelo: facebook/mask2former-swin-large-coco-panoptic</div>
+    </section>
+    <h3>Modelos de IA alternativos</h3>
     <section class="ai-model-card">
       <div class="ai-model-title"><span>TripoSR</span><span id="triposr-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Reconstrução rápida de objetos isolados a partir de uma foto.</p>
