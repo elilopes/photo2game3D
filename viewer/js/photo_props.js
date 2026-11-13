@@ -121,23 +121,44 @@ export function layoutTrees(count, squareSize = 60, margin = 5) {
 
 // treeList: [{ url, width_m, height_m }, ...]
 // Repete a lista se precisar de mais posições do que há árvores distintas.
+export function fitGeneratedModel(model, widthM, heightM) {
+  model.updateMatrixWorld(true);
+  const bounds = new THREE.Box3().setFromObject(model);
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  if (size.x <= 0 || size.y <= 0 || size.z <= 0) return;
+  model.position.sub(center);
+  model.scale.set(widthM / size.x, heightM / size.y, widthM / size.z);
+  model.updateMatrixWorld(true);
+  const fitted = new THREE.Box3().setFromObject(model);
+  model.position.y -= fitted.min.y;
+}
+
+// treeList: [{ url, model, width_m, height_m, x_m, z_m }, ...]
 export function buildTrees(treeList, squareSize = 60) {
   const group = new THREE.Group();
   group.name = 'arvores_foto';
   if (!treeList || treeList.length === 0) return group;
-
-  // Uma instância por árvore segmentada: nunca clonar a lista para preencher o mapa.
   const positions = layoutTrees(treeList.length, squareSize, 1);
 
   for (let i = 0; i < treeList.length; i++) {
     const info = treeList[i];
     const pos = Number.isFinite(info.x_m) && Number.isFinite(info.z_m) ? info : positions[i];
-    const bb = buildBillboard(info.url, info.width_m, info.height_m);
-    bb.position.set(pos.x_m ?? pos.x, info.height_m / 2, pos.z_m ?? pos.z);
-    // Leve variação de escala para não parecer clonado
-    const jit = 0.85 + (i % 5) * 0.07;
-    bb.scale.setScalar(jit);
-    group.add(bb);
+    if (info.model) {
+      const model = info.model;
+      model.name = `arvore_instantmesh_${i}`;
+      fitGeneratedModel(model, info.width_m, info.height_m);
+      model.position.x += pos.x_m ?? pos.x;
+      model.position.z += pos.z_m ?? pos.z;
+      model.traverse(o => {
+        if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+      });
+      group.add(model);
+    } else if (info.url) {
+      const bb = buildBillboard(info.url, info.width_m, info.height_m);
+      bb.position.set(pos.x_m ?? pos.x, info.height_m / 2, pos.z_m ?? pos.z);
+      group.add(bb);
+    }
   }
   return group;
 }
