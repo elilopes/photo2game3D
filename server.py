@@ -35,6 +35,7 @@ import scene_assets
 import photo_enhance
 import ai_reconstruction
 import building_reconstruction
+import image_to_3d
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -94,6 +95,7 @@ def index():
 def status():
     return jsonify(depth=depthmod.available_backend(),
                    ai=ai_reconstruction.status(),
+                   image_to_3d=image_to_3d.status(),
                    converter=converter_command(ROOT, ROOT) is not None,
                    enhance=photo_enhance.available_enhancements())
 
@@ -158,7 +160,7 @@ def generate():
         meta['context'] = context
         marca("classificação do contexto")
 
-        # Piso retificado e árvores recortadas da foto (não abortam se falharem)
+        # Piso retificado e árvores recortadas da foto
         fov = 55.0
         try:
             gl = scene_assets.detect_ground_row(img)
@@ -166,75 +168,109 @@ def generate():
             gl = None
 
         if gl is not None:
-            # Chão detectado pela heurística de campo → retifica perspectiva
             try:
                 tile_img, wm, dm = scene_assets.floor_tile(img, gl, fov=fov)
                 tile_path = proj / "piso.jpg"
-                tile_img.save(tile_path, quality=92)
+                tile_img.save(tile_path, quality=90)
                 meta["floor"] = dict(url=f"/projects/{pid}/piso.jpg", width_m=wm, depth_m=dm)
             except Exception as exc:
                 app.logger.warning("floor_tile falhou: %s", exc)
-        else:
-            # Sem chão detectado: usa piso genérico (porção inferior da foto — rua, areia, neve, etc.)
-            try:
-                tile_img, wm, dm = scene_assets.universal_floor(img)
-                tile_path = proj / "piso.jpg"
-                tile_img.save(tile_path, quality=92)
-                meta["floor"] = dict(url=f"/projects/{pid}/piso.jpg", width_m=wm, depth_m=dm, universal=True)
-                app.logger.info("universal_floor gerado para contexto '%s'", context)
-            except Exception as exc:
-                app.logger.warning("universal_floor falhou: %s", exc)
 
-        marca("piso retificado")
-        # Extrai elementos da foto (vegetação p/ contextos rurais; para urbano retorna lista vazia por design)
-        # gl_veg: se não detectou linha de chão, usa 60% da altura como corte para a extração
-        gl_veg = gl if gl is not None else int(img.size[1] * 0.60)
         try:
-            if context in ('urban', 'alpine', 'indoor', 'cave'):      # fachada verde / tufos de grama não são árvores; interior e caverna não têm
-                raise RuntimeError(f"extração de árvores pulada no contexto '{context}'")
-            trees_dir = proj / "arvores"
-            tree_list = ai_reconstruction.extract_trees(img, semantic, str(proj / "semantica"), fov=fov) if semantic else []
-            if tree_list:
-                meta["trees"] = [
-                    dict(url=f"/projects/{pid}/semantica/trees/{t['file']}",
-                         width_m=t["width_m"], height_m=t["height_m"],
-                         x_m=t["x_m"], z_m=t["z_m"], bbox=t["bbox"])
-                    for t in tree_list
-                ]
+            tree_list = []
+            if context not in ("urban", "alpine", "indoor", "cave"):
+                tree_list = ai_reconstruction.extract_trees(
+                    img, semantic, str(proj / "semantica"), fov=fov
+                ) if semantic else []
+            trees_meta = []
+            max_trees = int(os.getenv("PHOTO2GAME_MAX_INSTANTMESH_TREES", "4"))
+            for idx, tree in enumerate(tree_list[:max_trees]):
+                sprite_path = proj / "semantica" / "trees" / tree["file"]
+                try:
+                    with Image.open(sprite_path) as tree_image:
+                        glb = image_to_3d.generate_instantmesh(
+                            tree_image, str(proj / "instantmesh" / "trees"), f"tree_{idx}"
+                        )
+                    trees_meta.append(dict(
+                        model_url=f"/projects/{pid}/instantmesh/trees/{glb.name}",
+                        width_m=tree["width_m"], height_m=tree["height_m"],
+                        x_m=tree["x_m"], z_m=tree["z_m"], bbox=tree["bbox"],
+                        reconstruction="instantmesh"
+                    ))
+                    marca(f"InstantMesh árvore {idx + 1}/{min(len(tree_list), max_trees)}")
+                except Exception as exc:
+                    app.logger.warning("InstantMesh falhou para árvore %s; usando billboard: %s", idx, exc)
+                    trees_meta.append(dict(
+                        url=f"/projects/{pid}/semantica/trees/{tree['file']}",
+                        width_m=tree["width_m"], height_m=tree["height_m"],
+                        x_m=tree["x_m"], z_m=tree["z_m"], bbox=tree["bbox"],
+                        reconstruction="billboard_fallback"
+                    ))
+
+            if trees_meta:
+                meta["trees"] = trees_meta
             else:
-                tree_list = scene_assets.extract_trees(img, gl_veg, str(trees_dir), fov=fov)
+                gl_veg = gl if gl is not None else int(img.size[1] * 0.60)
+                fallback_trees = scene_assets.extract_trees(img, gl_veg, str(proj / "arvores"), fov=fov)
                 meta["trees"] = [
                     dict(url=f"/projects/{pid}/arvores/{t['file']}",
-                         width_m=t["width_m"], height_m=t["height_m"])
-                    for t in tree_list
+                         width_m=t["width_m"], height_m=t["height_m"],
+                         reconstruction="opencv_billboard")
+                    for t in fallback_trees
                 ]
         except Exception as exc:
-            app.logger.warning("extract_trees falhou: %s", exc)
+            app.logger.warning("extração/reconstrução de árvores falhou: %s", exc)
 
-        marca("árvores")
-        # Casa principal da foto (recorte com transparência, usado como fachada 3D no viewer)
+        marca("árvores e objetos 3D")
+
+        # Hunyuan3D gera a malha da edificação; o modelo procedural é fallback.
         try:
-            gl_house = gl if gl is not None else int(img.size[1] * 0.73)
-            building = building_reconstruction.build_building(
+            facade = ai_reconstruction.extract_house(
                 img, semantic, str(proj / "semantica"), fov=fov
             ) if semantic else None
-            if building:
-                meta["house"] = dict(
-                    model_url=f"/projects/{pid}/semantica/{building['file']}",
-                    width_m=building["width_m"], height_m=building["height_m"],
-                    depth_m=building["depth_m"], dist=building["dist"], x_m=building["x_m"],
-                    bbox=building["bbox"], reconstruction=building["type"],
-                    components=building["components"], door_detected=building["door_detected"],
-                    windows_detected=building["windows_detected"]
-                )
-            else:
-                house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
-                if house:
-                    meta["house"] = dict(url=f"/projects/{pid}/casa/{house['file']}", width_m=house["width_m"],
-                                         height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"],
-                                         segmentation="opencv", reconstruction="facade_proxy")
+            if facade:
+                facade_path = proj / "semantica" / facade["file"]
+                try:
+                    with Image.open(facade_path) as facade_image:
+                        glb = image_to_3d.generate_hunyuan3d(
+                            facade_image, str(proj / "hunyuan3d"), "edificacao", texture=True
+                        )
+                    meta["house"] = dict(
+                        model_url=f"/projects/{pid}/hunyuan3d/{glb.name}",
+                        width_m=facade["width_m"], height_m=facade["height_m"],
+                        depth_m=float(max(facade["width_m"] * 0.55, 2.5)),
+                        dist=facade["dist"], x_m=facade["x_m"], bbox=facade["bbox"],
+                        reconstruction="hunyuan3d", texture=True
+                    )
+                    marca("Hunyuan3D edificação concluída")
+                except Exception as exc:
+                    app.logger.warning("Hunyuan3D indisponível; usando reconstrução procedural: %s", exc)
+
+            if "house" not in meta:
+                building = building_reconstruction.build_building(
+                    img, semantic, str(proj / "semantica"), fov=fov
+                ) if semantic else None
+                if building:
+                    meta["house"] = dict(
+                        model_url=f"/projects/{pid}/semantica/{building['file']}",
+                        width_m=building["width_m"], height_m=building["height_m"],
+                        depth_m=building["depth_m"], dist=building["dist"], x_m=building["x_m"],
+                        bbox=building["bbox"], reconstruction=building["type"],
+                        components=building["components"], door_detected=building["door_detected"],
+                        windows_detected=building["windows_detected"]
+                    )
+                else:
+                    gl_house = gl if gl is not None else int(img.size[1] * 0.73)
+                    house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
+                    if house:
+                        meta["house"] = dict(
+                            url=f"/projects/{pid}/casa/{house['file']}",
+                            width_m=house["width_m"], height_m=house["height_m"],
+                            dist=house["dist"], x_m=house["x_m"],
+                            segmentation="opencv", reconstruction="facade_proxy"
+                        )
         except Exception as exc:
-            app.logger.warning("extract_house falhou: %s", exc)
+            app.logger.warning("reconstrução da edificação falhou: %s", exc)
 
         marca("casa")
         (proj / "meta.json").write_text(json.dumps(meta))
