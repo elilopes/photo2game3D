@@ -22,12 +22,27 @@ CATALOG = {
     },
 }
 
+def _recognized(name: str, path: Path) -> bool:
+    """Recognize a model only when code structure and model weights are present."""
+    if not path.is_dir():
+        return False
+    suffixes = {'.safetensors', '.ckpt', '.pth', '.pt', '.bin'}
+    has_weights = any(p.is_file() and p.suffix.lower() in suffixes for p in path.rglob('*'))
+    if name == 'instantmesh':
+        has_code = (path / 'run.py').is_file() and ((path / 'pretrained_weights').is_dir() or (path / 'weights').is_dir())
+    else:
+        has_code = (path / 'api_server.py').is_file() or (path / 'hy3dgen').is_dir()
+    return has_code and has_weights
+
+
 def model_status():
     result = {}
     for key, item in CATALOG.items():
-        path = MODELS / item["directory"]
-        result[key] = {"label": item["label"], "path": str(path), "exists": path.exists(),
-                       "size_bytes": sum(p.stat().st_size for p in path.rglob("*") if p.is_file()) if path.exists() else 0}
+        path = MODELS / item['directory']
+        files = [p for p in path.rglob('*') if p.is_file()] if path.exists() else []
+        result[key] = {'label': item['label'], 'path': str(path), 'exists': path.exists(),
+                       'recognized': _recognized(key, path),
+                       'size_bytes': sum(p.stat().st_size for p in files)}
     return result
 
 def download_model(name: str):
