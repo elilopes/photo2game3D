@@ -379,3 +379,14 @@ Objetos são processados por TripoSR e InstantMesh; edificações por Hunyuan3D-
 - Hunyuan3D está sujeito à Tencent Hunyuan Community License. Lyra tem licença de código Apache-2.0, mas os pesos têm termos próprios. Confira os termos de cada checkpoint antes de redistribuir ou usar comercialmente.
 
 Fontes oficiais: https://github.com/VAST-AI-Research/TripoSR · https://github.com/TencentARC/InstantMesh · https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 · https://github.com/microsoft/TRELLIS.2 · https://github.com/nv-tlabs/lyra · https://github.com/facebookresearch/vggt.
+
+
+## Controle de uso e desempenho dos modelos de IA
+
+No modal **Gerenciar IA**, cada modelo tem a opção **Usar este modelo nas reconstruções**. Desmarque-a para impedir que o motor seja executado nas próximas gerações. As escolhas ficam salvas em `data/ai_model_settings.json` e persistem entre reinicializações do servidor.
+
+Os motores InstantMesh, Hunyuan3D-2.1, TRELLIS.2-4B, Lyra 2.0 e VGGT-1B exibem o aviso: **“Este modelo de IA é lento e precisa de grande poder computacional.”** TripoSR também pode exigir GPU dedicada, mas tende a ser uma opção comparativamente mais leve.
+
+As configurações são independentes: desativar um motor não desativa seu concorrente. Se todos os motores de uma categoria forem desativados, o pipeline segue com os fallbacks já existentes (billboard/proxy procedural). As alterações passam a valer nas próximas reconstruções; uma geração que já está em andamento não é interrompida.
+
+A API `GET /api/models/settings` consulta as escolhas e `POST /api/models/settings` salva um objeto `{"settings":{"triposr":true,"instantmesh":false}}`. Antes de qualquer configuração ser salva pelo modal, as antigas variáveis `PHOTO2GAME_ENABLE_...` continuam sendo respeitadas. Depois que o usuário salva suas escolhas, elas passam a prevalecer.

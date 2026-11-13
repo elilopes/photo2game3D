@@ -40,6 +40,7 @@ import model_manager
 import reconstruction_pipeline
 import model_comparator
 import world_models
+import ai_model_settings
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -97,7 +98,22 @@ def index():
 
 @app.get("/api/models")
 def models_status():
-    return jsonify(models=model_manager.model_status())
+    return jsonify(models=model_manager.model_status(), settings=ai_model_settings.get_settings())
+
+
+@app.get("/api/models/settings")
+def get_model_settings():
+    return jsonify(settings=ai_model_settings.get_settings())
+
+
+@app.post("/api/models/settings")
+def save_model_settings():
+    data=request.get_json(silent=True) or {}
+    try:
+        settings=ai_model_settings.update_settings(data.get("settings",{}))
+        return jsonify(ok=True,settings=settings)
+    except ValueError as exc:
+        abort(400,str(exc))
 
 
 @app.post("/api/models/download")
@@ -425,7 +441,7 @@ def reconstruct_world(pid):
     if not photo.is_file(): abort(404,"Foto original do projeto não encontrada.")
     results=[]; failures={}
     for key in ("lyra2","vggt"):
-        if os.getenv("PHOTO2GAME_ENABLE_"+key.upper(),"1").lower() in {"0","false","no","off"}: continue
+        if not ai_model_settings.is_enabled(key): continue
         try: results.append(world_models.run_engine(key,str(photo),str(folder/"world"/key)))
         except Exception as exc: failures[key]=f"{type(exc).__name__}: {exc}"
     meta_path=folder/"meta.json"; meta=json.loads(meta_path.read_text())

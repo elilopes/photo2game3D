@@ -49,6 +49,9 @@
   .ai-model-card p { margin:8px 0; color:#b8c5d3; font-size:12px; }
   .ai-model-actions { display:flex; flex-wrap:wrap; gap:8px; }
   .ai-model-actions button { flex:1; min-width:170px; }
+  .ai-enable-row { display:flex; align-items:flex-start; gap:8px; margin:10px 0 4px; color:#e8edf2; font-size:12px; }
+  .ai-enable-row input { margin-top:2px; }
+  .ai-compute-warning { color:#ffbd69 !important; font-size:11px !important; margin:4px 0 8px !important; }
   .ai-folder-input { width:100%; margin:8px 0; color:#e8edf2; }
   #ai-modal-status { white-space:pre-wrap; color:#b9d8ff; margin-top:10px; }
   #reconstruction-review { display:none; position:fixed; right:16px; top:16px; z-index:45; width:min(440px,calc(100vw - 32px)); max-height:80vh; overflow:auto; background:#151d27; border:1px solid #46576a; border-radius:12px; padding:14px; box-shadow:0 12px 48px #000b; }
@@ -106,6 +109,7 @@
     <section class="ai-model-card">
       <div class="ai-model-title"><span>TripoSR</span><span id="triposr-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Reconstrução rápida de objetos isolados a partir de uma foto.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-triposr" checked> Usar este modelo nas reconstruções</label>
       <div class="ai-model-actions"><button id="triposr-download">Baixar automaticamente</button><button id="triposr-refresh">Verificar</button></div>
       <label>Selecionar pasta local<input id="triposr-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="triposr-import" style="width:100%">Importar pasta</button><div id="triposr-info" class="muted"></div>
@@ -113,6 +117,7 @@
     <section class="ai-model-card">
       <div class="ai-model-title"><span>InstantMesh</span><span id="instantmesh-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Reconstrução alternativa dos mesmos objetos para comparação.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-instantmesh" checked> Usar este modelo nas reconstruções</label><p class="ai-compute-warning">Este modelo de IA é lento e precisa de grande poder computacional.</p>
       <div class="ai-model-actions"><button id="instantmesh-download">Baixar automaticamente</button><button id="instantmesh-refresh">Verificar</button></div>
       <label>Selecionar pasta local<input id="instantmesh-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="instantmesh-import" style="width:100%">Importar pasta</button><div id="instantmesh-info" class="muted"></div>
@@ -120,6 +125,7 @@
     <section class="ai-model-card">
       <div class="ai-model-title"><span>Tencent Hunyuan3D-2.1</span><span id="hunyuan3d21-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Geração de malhas e materiais PBR para edificações.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-hunyuan3d21" checked> Usar este modelo nas reconstruções</label><p class="ai-compute-warning">Este modelo de IA é lento e precisa de grande poder computacional.</p>
       <div class="ai-model-actions"><button id="hunyuan3d21-download">Baixar automaticamente</button><button id="hunyuan3d21-refresh">Verificar</button></div>
       <label>Selecionar pasta local<input id="hunyuan3d21-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="hunyuan3d21-import" style="width:100%">Importar pasta</button><div id="hunyuan3d21-info" class="muted"></div>
@@ -127,6 +133,7 @@
     <section class="ai-model-card">
       <div class="ai-model-title"><span>Microsoft TRELLIS.2-4B</span><span id="trellis2-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Alternativa de alta fidelidade para geometrias e materiais complexos.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-trellis2" checked> Usar este modelo nas reconstruções</label><p class="ai-compute-warning">Este modelo de IA é lento e precisa de grande poder computacional.</p>
       <div class="ai-model-actions"><button id="trellis2-download">Baixar automaticamente</button><button id="trellis2-refresh">Verificar</button></div>
       <label>Selecionar pasta local<input id="trellis2-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="trellis2-import" style="width:100%">Importar pasta</button><div id="trellis2-info" class="muted"></div>
@@ -134,6 +141,7 @@
     <section class="ai-model-card">
       <div class="ai-model-title"><span>NVIDIA Lyra 2.0</span><span id="lyra2-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Geração de mundos 3D exploráveis; requer serviço dedicado e saída de cena compatível.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-lyra2" checked> Usar este modelo nas reconstruções</label><p class="ai-compute-warning">Este modelo de IA é lento e precisa de grande poder computacional.</p>
       <div class="ai-model-actions"><button id="lyra2-download">Baixar automaticamente</button><button id="lyra2-refresh">Verificar</button></div>
       <label>Selecionar pasta local<input id="lyra2-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="lyra2-import" style="width:100%">Importar pasta</button><div id="lyra2-info" class="muted"></div>
@@ -141,10 +149,12 @@
     <section class="ai-model-card">
       <div class="ai-model-title"><span>Meta VGGT-1B</span><span id="vggt-check" class="ai-missing">○ Não reconhecido</span></div>
       <p>Estimativa de câmeras, profundidade e geometria de cena; ideal com múltiplas vistas.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-vggt" checked> Usar este modelo nas reconstruções</label><p class="ai-compute-warning">Este modelo de IA é lento e precisa de grande poder computacional.</p>
       <div class="ai-model-actions"><button id="vggt-download">Baixar automaticamente</button><button id="vggt-refresh">Verificar</button></div>
       <label>Selecionar pasta local<input id="vggt-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="vggt-import" style="width:100%">Importar pasta</button><div id="vggt-info" class="muted"></div>
     </section>
+    <p class="muted">Desative os modelos pesados para reduzir o tempo de processamento. As alterações são salvas e aplicadas às próximas reconstruções.</p>
     <button id="world-reconstruct" style="width:100%">Gerar geometria e mundo explorável (Lyra + VGGT)</button><div id="world-results" class="muted"></div>
     <div id="ai-modal-status">Consultando os arquivos dos modelos...</div>
     <p class="muted">O indicador verde só aparece quando o servidor identifica os arquivos de pesos e a estrutura mínima do modelo. O download pode exigir autenticação ou aceite da licença no Hugging Face.</p>

@@ -5,13 +5,14 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 PROJECTS=ROOT/"projects"
 import image_to_3d
+import ai_model_settings
 from model_comparator import rank_candidates
 
 OBJECT_ENGINES=("triposr","instantmesh")
 BUILDING_ENGINES=("hunyuan3d21","trellis2")
 
 def _enabled(key: str) -> bool:
-    return os.getenv("PHOTO2GAME_ENABLE_"+key.upper(),"1").strip().lower() not in {"0","false","no","off"}
+    return ai_model_settings.is_enabled(key)
 
 def reconstruct(image, category: str, output_dir: str, name: str) -> dict:
     engines=OBJECT_ENGINES if category=="object" else BUILDING_ENGINES

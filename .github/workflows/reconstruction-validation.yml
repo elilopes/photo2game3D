@@ -18,6 +18,6 @@ jobs:
         with:
           node-version: "20"
       - name: Compile Python modules
-        run: python -m py_compile server.py image_to_3d.py model_manager.py model_comparator.py reconstruction_pipeline.py world_models.py
+        run: python -m py_compile server.py ai_model_settings.py image_to_3d.py model_manager.py model_comparator.py reconstruction_pipeline.py world_models.py
       - name: Check viewer JavaScript syntax
         run: node --check viewer/js/main.js
