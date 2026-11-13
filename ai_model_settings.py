@@ -32,6 +32,9 @@ def update_settings(changes: dict) -> dict:
     return values
 
 def is_enabled(key: str) -> bool:
+    # Explicit choices saved in the UI take precedence over legacy environment flags.
+    if SETTINGS_FILE.is_file():
+        return get_settings().get(key,False)
     env=os.getenv("PHOTO2GAME_ENABLE_"+key.upper())
     if env is not None:
         return env.strip().lower() not in {"0","false","no","off"}
