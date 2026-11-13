@@ -121,6 +121,66 @@ def import_model():
         abort(400, str(exc))
 
 
+@app.get("/api/dependencies")
+def dependencies_status():
+    """Check required Python packages, optional integrations and bundled viewer assets."""
+    checks = []
+
+    def package(label, module, required=True, note=""):
+        try:
+            available = importlib.util.find_spec(module) is not None
+        except (ImportError, ValueError):
+            available = False
+        checks.append({
+            "name": label, "available": available,
+            "required": required, "detail": note or (f"Módulo Python: {module}"),
+        })
+
+    package("Flask", "flask", True, "Servidor web e API")
+    package("NumPy", "numpy", True, "Operações numéricas")
+    package("Pillow", "PIL", True, "Leitura e processamento de imagens")
+    package("Trimesh", "trimesh", True, "Geração e exportação de malhas 3D")
+    package("OpenCV", "cv2", True, "Processamento e segmentação de imagens")
+    package("PyTorch", "torch", True, "Modelo de profundidade e inferência IA")
+    package("Transformers", "transformers", True, "Pipeline de profundidade")
+    package("Hugging Face Hub", "huggingface_hub", False, "Download automático dos pesos")
+    package("Requests", "requests", False, "Integração com serviços Image-to-3D remotos")
+
+    git_path = shutil.which("git")
+    checks.append({"name": "Git", "available": bool(git_path), "required": False,
+                   "detail": git_path or "Necessário para clonar repositórios oficiais."})
+    blender = find_blender()
+    checks.append({"name": "Blender", "available": bool(blender) or importlib.util.find_spec("bpy") is not None,
+                   "required": False, "detail": blender or ("Módulo bpy disponível" if importlib.util.find_spec("bpy") else "Exportação FBX/.blend; GLB continua disponível.")})
+
+    for label, rel in [
+        ("Three.js", "vendor/three.module.js"),
+        ("Rapier", "vendor/rapier.es.js"),
+        ("Visualizador principal", "viewer/index.html"),
+    ]:
+        asset = ROOT / rel
+        checks.append({"name": label, "available": asset.is_file(), "required": True,
+                       "detail": str(asset)})
+
+    try:
+        import torch
+        cuda = bool(torch.cuda.is_available())
+        gpu_name = torch.cuda.get_device_name(0) if cuda else "CUDA indisponível; inferência pode usar CPU"
+        checks.append({"name": "GPU CUDA", "available": cuda, "required": False, "detail": gpu_name})
+    except Exception as exc:
+        checks.append({"name": "GPU CUDA", "available": False, "required": False, "detail": str(exc)})
+
+    required_missing = sum(1 for item in checks if item["required"] and not item["available"])
+    optional_missing = sum(1 for item in checks if not item["required"] and not item["available"])
+    return jsonify(
+        python_version=sys.version.split()[0],
+        checks=checks,
+        required_missing=required_missing,
+        optional_missing=optional_missing,
+        ok=required_missing == 0,
+    )
+
+
 @app.get("/api/status")
 def status():
     return jsonify(depth=depthmod.available_backend(),
