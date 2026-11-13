@@ -22,6 +22,22 @@
   #hud .model-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 6px 0; }
   #hud .model-actions button { min-width: 0; }
   #model-status { white-space: pre-wrap; color: #b9d8ff; margin: 5px 0; }
+  #manage-ai-open { width:100%; margin:8px 0; background:#245fba; border-color:#397bd8; }
+  #ai-modal { display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.78); align-items:center; justify-content:center; padding:18px; }
+  #ai-modal.open { display:flex; }
+  #ai-modal-card { width:min(760px,100%); max-height:90vh; overflow:auto; background:#151d27; border:1px solid #3a4654; border-radius:14px; padding:18px; box-shadow:0 18px 70px #000a; }
+  #ai-modal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  #ai-modal-head h2 { margin:0; font-size:18px; }
+  #ai-modal-close { flex:0 0 auto; width:36px; }
+  .ai-model-card { border:1px solid #344252; border-radius:10px; padding:12px; margin:12px 0; background:#1c2632; }
+  .ai-model-title { display:flex; justify-content:space-between; gap:10px; align-items:center; font-weight:700; }
+  .ai-recognized { color:#65dc91; font-weight:700; }
+  .ai-missing { color:#ffbd69; font-weight:600; }
+  .ai-model-card p { margin:8px 0; color:#b8c5d3; font-size:12px; }
+  .ai-model-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .ai-model-actions button { flex:1; min-width:170px; }
+  .ai-folder-input { width:100%; margin:8px 0; color:#e8edf2; }
+  #ai-modal-status { white-space:pre-wrap; color:#b9d8ff; margin-top:10px; }
   #hud summary { cursor: pointer; }
   #links a { color: #9cf; display: inline-block; margin: 2px 0; }
   #status { color: #cfe3ff; }
@@ -57,25 +73,27 @@
   <div id="warn"></div>
   <div id="links"></div>
   <div class="muted"><span id="fps"></span></div>
-  <details id="model-manager">
-    <summary>Gerenciar modelos de IA (InstantMesh / Hunyuan3D)</summary>
-    <label>Modelo
-      <select id="model-choice" style="width:100%;margin-top:4px;background:#202a35;color:#e8edf2;padding:5px;border-radius:5px">
-        <option value="instantmesh">InstantMesh — objetos e árvores</option>
-        <option value="hunyuan3d">Hunyuan3D-2 — edificações</option>
-      </select>
-    </label>
-    <div class="model-actions">
-      <button id="model-download">Baixar automaticamente</button>
-      <button id="model-refresh">Verificar modelos</button>
-    </div>
-    <label>Importar pasta baixada manualmente
-      <input id="model-folder" type="file" webkitdirectory directory multiple>
-    </label>
-    <button id="model-import" style="width:100%;margin-top:5px">Importar pasta selecionada</button>
-    <div id="model-status">Verificando modelos...</div>
-    <div class="muted">Os arquivos ficam em models/ no projeto. O download pode ocupar vários GB; alguns modelos exigem aceitar os termos/licença no Hugging Face antes de baixar.</div>
-  </details>
+  <button id="manage-ai-open">Gerenciar IA</button>
+  <div id="ai-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title"><div id="ai-modal-card">
+    <div id="ai-modal-head"><h2 id="ai-modal-title">Gerenciar modelos de IA</h2><button id="ai-modal-close" aria-label="Fechar">✕</button></div>
+    <p class="muted">Baixe os arquivos oficiais do Hugging Face e o código do GitHub, ou importe separadamente a pasta baixada de cada modelo.</p>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>InstantMesh</span><span id="instantmesh-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Reconstrução 3D de árvores, objetos e elementos da cena.</p>
+      <div class="ai-model-actions"><button id="instantmesh-download">Baixar automaticamente</button><button id="instantmesh-refresh">Verificar</button></div>
+      <label>Selecionar pasta local do InstantMesh<input id="instantmesh-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="instantmesh-import" style="width:100%">Importar pasta do InstantMesh</button><div id="instantmesh-info" class="muted"></div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Hunyuan3D-2</span><span id="hunyuan3d-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Reconstrução volumétrica de edificações e objetos complexos.</p>
+      <div class="ai-model-actions"><button id="hunyuan3d-download">Baixar automaticamente</button><button id="hunyuan3d-refresh">Verificar</button></div>
+      <label>Selecionar pasta local do Hunyuan3D-2<input id="hunyuan3d-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="hunyuan3d-import" style="width:100%">Importar pasta do Hunyuan3D-2</button><div id="hunyuan3d-info" class="muted"></div>
+    </section>
+    <div id="ai-modal-status">Consultando os arquivos dos modelos...</div>
+    <p class="muted">O indicador verde só aparece quando o servidor identifica os arquivos de pesos e a estrutura mínima do modelo. O download pode exigir autenticação ou aceite da licença no Hugging Face.</p>
+  </div></div>
   <details>
     <summary>Carregar GLB para testar (secundário)</summary>
     <input type="file" id="glb" accept=".glb,.gltf">
