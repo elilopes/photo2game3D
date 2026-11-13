@@ -110,10 +110,14 @@ def analyze(image: Image.Image, output_dir: str) -> dict[str, Any]:
         canonical = aliases.get(label, label.replace(" ", "_"))
         labels[canonical] = labels.get(canonical, np.zeros((h, w), dtype=bool)) | mask
         ys, xs = np.where(mask)
+        instance_dir = Path(output_dir) / "instances"
+        instance_dir.mkdir(parents=True, exist_ok=True)
+        instance_name = f"object_{len(objects)}.png"
+        Image.fromarray((mask * 255).astype(np.uint8)).save(instance_dir / instance_name)
         objects.append({
             "label": canonical, "source_label": label, "score": round(score, 4),
             "bbox": [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1],
-            "area": int(mask.sum()),
+            "area": int(mask.sum()), "mask_file": instance_name,
             "centroid": [round(float(xs.mean()), 2), round(float(ys.mean()), 2)],
         })
 
@@ -217,3 +221,54 @@ def extract_trees(image: Image.Image, analysis: dict[str, Any], output_dir: str,
             "segmentation": "ai",
         })
     return out
+
+
+
+def extract_objects(image: Image.Image, analysis: dict[str, Any], output_dir: str,
+                    fov: float = 55.0, eye_height: float = 1.6,
+                    max_objects: int = 8) -> list[dict[str, Any]]:
+    """Create transparent, per-instance crops for non-building scene objects."""
+    import cv2
+    if not analysis:
+        return []
+    excluded = {"building", "tree", "vegetation", "ground", "path", "sky",
+                "door", "window", "wall", "floor", "earth", "grass"}
+    h, w = image.height, image.width
+    focal = w / (2.0 * np.tan(np.deg2rad(fov / 2.0)))
+    rgb = np.asarray(image.convert("RGB"))
+    out_dir = Path(output_dir) / "objects"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    candidates = []
+    for item in analysis.get("objects", []):
+        label = str(item.get("label", "object"))
+        if label in excluded:
+            continue
+        x0, y0, x1, y1 = (int(v) for v in item.get("bbox", [0, 0, 0, 0]))
+        area = int(item.get("area", 0))
+        if x1 <= x0 or y1 <= y0 or area < max(120, int(w * h * 0.0007)):
+            continue
+        if area > int(w * h * 0.25):
+            continue
+        candidates.append((area, item, (x0, y0, x1, y1)))
+    candidates.sort(key=lambda value: value[0], reverse=True)
+    result = []
+    for _, item, (x0, y0, x1, y1) in candidates[:max_objects]:
+        mask_path = Path(output_dir) / "instances" / item.get("mask_file", "")
+        if not mask_path.is_file():
+            continue
+        mask = np.asarray(Image.open(mask_path).convert("L"))[y0:y1, x0:x1]
+        crop = Image.fromarray(rgb[y0:y1, x0:x1]).convert("RGBA")
+        crop.putalpha(Image.fromarray(mask).filter(ImageFilter.GaussianBlur(0.5)))
+        filename = f"object_{len(result)}.png"
+        crop.save(out_dir / filename)
+        bw, bh = x1 - x0, y1 - y0
+        base = y1
+        distance = focal * eye_height / max(base - h / 2.0, 8.0)
+        mpp = distance / focal
+        result.append({
+            "file": filename, "label": item.get("label", "object"),
+            "width_m": float(bw * mpp), "height_m": float(bh * mpp),
+            "x_m": float(((x0 + x1) / 2.0 - w / 2.0) * mpp),
+            "z_m": float(-distance), "bbox": [x0, y0, x1, y1],
+        })
+    return result
