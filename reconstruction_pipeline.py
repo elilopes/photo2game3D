@@ -27,6 +27,12 @@ def reconstruct(image, category: str, output_dir: str, name: str) -> dict:
             if not project_id: raise RuntimeError("Não foi possível identificar o projeto para publicar a malha.")
             relative=Path(path).resolve().relative_to((PROJECTS/project_id).resolve())
             candidates.append({"engine":key,"label":key,"path":str(path),"url":f"/projects/{project_id}/{relative.as_posix()}"})
+            # SF3D fast path: stop after a valid mesh unless comparison mode is requested.
+            compare_all=os.getenv("PHOTO2GAME_COMPARE_ALL_ENGINES","0").strip().lower() in {"1","true","yes","on"}
+            if key=="sf3d" and not compare_all:
+                first=rank_candidates(candidates)
+                if first and first[0].get("evaluation",{}).get("valid"):
+                    break
         except Exception as exc:
             failures[key]=f"{type(exc).__name__}: {exc}"
     ranked=rank_candidates(candidates)
