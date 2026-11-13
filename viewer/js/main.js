@@ -499,7 +499,7 @@ function renderReconstructionReview(meta, projectId) {
 
 // ---------- gerenciamento dos modelos de IA ---------------------------------------------------
 const $aiModal = $('ai-modal'), $aiModalStatus = $('ai-modal-status');
-const modelKeys = ['triposr', 'instantmesh', 'hunyuan3d21', 'trellis2', 'lyra2', 'vggt'];
+const modelKeys = ['sf3d', 'triposr', 'instantmesh', 'spar3d', 'hunyuan3d21', 'trellis2', 'hunyuan3d2mv', 'lyra2', 'vggt', 'hunyuanworld1'];
 function setAiModal(open) {
   $aiModal.classList.toggle('open', open);
   if (open) { refreshModelStatus(); refreshIntegratedAiStatus(); }
@@ -588,6 +588,20 @@ for (const k of modelKeys) {
   });
 }
 refreshModelStatus();
+
+$('multiview-generate')?.addEventListener('click', async () => {
+  const files=[...($('multiview-photos')?.files || [])], target=$('multiview-result');
+  if(!pid || pid==='novo'){target.textContent='Gere primeiro um projeto enviando uma foto.';return;}
+  if(files.length<2){target.textContent='Selecione pelo menos duas fotografias do mesmo objeto.';return;}
+  const button=$('multiview-generate'); button.disabled=true; target.textContent='Enviando vistas para Hunyuan3D-2mv...';
+  try{
+    const fd=new FormData(); files.forEach(file=>fd.append('images',file,file.name));
+    const result=await api('/api/reconstruct/multiview/'+pid,{method:'POST',body:fd});
+    const link=document.createElement('a'); link.href=result.url; link.target='_blank'; link.rel='noopener'; link.textContent='Abrir malha GLB gerada';
+    target.replaceChildren(link); target.prepend(document.createTextNode('Reconstrução concluída · '));
+  }catch(error){target.textContent='Falha no Hunyuan3D-2mv: '+error.message;}
+  finally{button.disabled=false;}
+});
 
 $('world-reconstruct')?.addEventListener('click', async () => {
   const target=$('world-results');
