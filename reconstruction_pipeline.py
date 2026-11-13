@@ -31,7 +31,7 @@ def reconstruct(image, category: str, output_dir: str, name: str) -> dict:
             compare_all=os.getenv("PHOTO2GAME_COMPARE_ALL_ENGINES","0").strip().lower() in {"1","true","yes","on"}
             if key=="sf3d" and not compare_all:
                 first=rank_candidates(candidates)
-                if first and first[0].get("evaluation",{}).get("valid):
+                if first and first[0].get("evaluation",{}).get("valid"):
                     break
         except Exception as exc:
             failures[key]=f"{type(exc).__name__}: {exc}"
