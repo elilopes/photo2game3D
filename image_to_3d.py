@@ -234,13 +234,58 @@ def _configured_remote(key: str, image: Image.Image, output_dir: str, name: str)
     return _remote_glb(endpoint,image,out/f"{name}.glb",token=os.getenv(key.upper()+"_API_TOKEN",""),
       timeout=int(os.getenv(key.upper()+"_TIMEOUT","1800")),model=key)
 
+def _run_generated_worker(root: Path, python: str, worker_source: str, image: Image.Image,
+                          output_dir: str, name: str, timeout: int) -> Path:
+    root=Path(root).resolve(); out=Path(output_dir); out.mkdir(parents=True,exist_ok=True)
+    source=out/(name+"_input.png"); _white_background(image,(1024,1024)).save(source)
+    worker=out/(name+"_worker.py"); worker.write_text(worker_source,encoding="utf-8")
+    target=out/(name+".glb")
+    subprocess.run([python,str(worker),str(root),str(source),str(target)],cwd=str(root),
+                   check=True,timeout=timeout)
+    if not target.is_file() or target.stat().st_size<20 or target.read_bytes()[:4]!=b"glTF":
+        raise RuntimeError("O worker não produziu um GLB válido.")
+    return target
+
 def generate_trellis2(image: Image.Image, output_dir: str, name: str) -> Path:
-    return _configured_remote("TRELLIS2",image,output_dir,name)
+    if os.getenv("TRELLIS2_API_URL"):
+        return _configured_remote("TRELLIS2",image,output_dir,name)
+    root=Path(os.getenv("TRELLIS2_DIR","models/TRELLIS.2")).resolve()
+    if not (root/"trellis2").is_dir(): raise RuntimeError("TRELLIS.2 local não encontrado; defina TRELLIS2_DIR ou TRELLIS2_API_URL.")
+    worker=r'''
+import os,sys
+os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
+root,source,target=sys.argv[1:4]; sys.path.insert(0,root)
+from PIL import Image
+from trellis2.pipelines import Trellis2ImageTo3DPipeline
+import o_voxel
+pipeline=Trellis2ImageTo3DPipeline.from_pretrained("microsoft/TRELLIS.2-4B").cuda()
+mesh=pipeline.run(Image.open(source).convert("RGB"))[0]
+mesh.simplify(16777216)
+glb=o_voxel.postprocess.to_glb(vertices=mesh.vertices,faces=mesh.faces,attr_volume=mesh.attrs,
+ coords=mesh.coords,attr_layout=mesh.layout,voxel_size=mesh.voxel_size,
+ aabb=[[-0.5,-0.5,-0.5],[0.5,0.5,0.5]],decimation_target=1000000,
+ texture_size=2048,remesh=True,remesh_band=1,remesh_project=0,verbose=True)
+glb.export(target,extension_webp=True)
+'''
+    return _run_generated_worker(root,os.getenv("TRELLIS2_PYTHON",sys.executable),worker,image,output_dir,name,int(os.getenv("TRELLIS2_TIMEOUT","3600")))
 
 def generate_hunyuan3d21(image: Image.Image, output_dir: str, name: str) -> Path:
-    # Hunyuan3D-2.1 has a different model/checkpoint and Python API from the old 2.0 adapter.
-    # Use a dedicated 2.1 service to avoid silently sending requests to an incompatible 2.0 server.
-    return _configured_remote("HUNYUAN3D21",image,output_dir,name)
+    if os.getenv("HUNYUAN3D21_API_URL"):
+        return _configured_remote("HUNYUAN3D21",image,output_dir,name)
+    root=Path(os.getenv("HUNYUAN3D21_DIR","models/Hunyuan3D-2.1")).resolve()
+    if not (root/"hy3dshape").is_dir(): raise RuntimeError("Hunyuan3D-2.1 local não encontrado; defina HUNYUAN3D21_DIR ou HUNYUAN3D21_API_URL.")
+    worker=r'''
+import sys
+root,source,target=sys.argv[1:4]
+sys.path.insert(0,root+"/hy3dshape")
+from PIL import Image
+from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+pipeline=Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2.1",subfolder="hunyuan3d-dit-v2-1")
+mesh=pipeline(image=Image.open(source).convert("RGB"))[0]
+mesh.export(target)
+'''
+    return _run_generated_worker(root,os.getenv("HUNYUAN3D21_PYTHON",sys.executable),worker,image,output_dir,name,int(os.getenv("HUNYUAN3D21_TIMEOUT","3600")))
 
 def generate_vggt(image: Image.Image, output_dir: str, name: str) -> Path:
     return _configured_remote("VGGT",image,output_dir,name)
