@@ -36,8 +36,8 @@ def status() -> dict[str, Any]:
     return {
         "mode": mode,
         "triposr": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("TRIPOSR_DIR","models/TripoSR"))/"run.py").is_file(),"remote_configured":bool(os.getenv("TRIPOSR_API_URL")),"repository":"https://github.com/VAST-AI-Research/TripoSR"},
-        "trellis2": {"provider":"http-api","configured":bool(os.getenv("TRELLIS2_API_URL")),"repository":"https://github.com/microsoft/TRELLIS.2","model":"microsoft/TRELLIS.2-4B"},
-        "hunyuan3d21": {"provider":"http-api","configured":bool(os.getenv("HUNYUAN3D21_API_URL")),"repository":"https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1"},
+        "trellis2": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("TRELLIS2_DIR","models/TRELLIS.2"))/"trellis2").is_dir(),"configured":bool(os.getenv("TRELLIS2_API_URL")) or (Path(os.getenv("TRELLIS2_DIR","models/TRELLIS.2"))/"trellis2").is_dir(),"repository":"https://github.com/microsoft/TRELLIS.2","model":"microsoft/TRELLIS.2-4B"},
+        "hunyuan3d21": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("HUNYUAN3D21_DIR","models/Hunyuan3D-2.1"))/"hy3dshape").is_dir(),"configured":bool(os.getenv("HUNYUAN3D21_API_URL")) or (Path(os.getenv("HUNYUAN3D21_DIR","models/Hunyuan3D-2.1"))/"hy3dshape").is_dir(),"repository":"https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1"},
         "lyra2": {"provider":"http-api","configured":bool(os.getenv("LYRA2_API_URL")),"repository":"https://github.com/nv-tlabs/lyra","model":"nvidia/Lyra-2.0","output_kind":"explorable_world"},
         "vggt": {"provider":"http-api","configured":bool(os.getenv("VGGT_API_URL")),"repository":"https://github.com/facebookresearch/vggt","model":"facebook/VGGT-1B","output_kind":"scene_geometry"},
         "instantmesh": {
@@ -278,7 +278,7 @@ def generate_hunyuan3d21(image: Image.Image, output_dir: str, name: str) -> Path
     worker=r'''
 import sys
 root,source,target=sys.argv[1:4]
-sys.path.insert(0,root+"/hy3dshape")
+sys.path.insert(0,root)
 from PIL import Image
 from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
 pipeline=Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2.1",subfolder="hunyuan3d-dit-v2-1")
