@@ -221,6 +221,40 @@ def generate():
         except Exception as exc:
             app.logger.warning("extração/reconstrução de árvores falhou: %s", exc)
 
+        # Outros objetos segmentados (mobiliário, veículos, animais etc.) também viram malhas.
+        try:
+            object_list = ai_reconstruction.extract_objects(
+                img, semantic, str(proj / "semantica"), fov=fov,
+                max_objects=int(os.getenv("PHOTO2GAME_MAX_INSTANTMESH_OBJECTS", "4"))
+            ) if semantic else []
+            object_meta = []
+            for idx, obj in enumerate(object_list):
+                sprite_path = proj / "semantica" / "objects" / obj["file"]
+                try:
+                    with Image.open(sprite_path) as object_image:
+                        glb = image_to_3d.generate_instantmesh(
+                            object_image, str(proj / "instantmesh" / "objects"),
+                            f"object_{idx}_{re.sub(r'[^a-z0-9]+', '_', obj['label'].lower())[:24]}"
+                        )
+                    object_meta.append(dict(
+                        model_url=f"/projects/{pid}/instantmesh/objects/{glb.name}",
+                        width_m=obj["width_m"], height_m=obj["height_m"],
+                        x_m=obj["x_m"], z_m=obj["z_m"], bbox=obj["bbox"],
+                        label=obj["label"], reconstruction="instantmesh"
+                    ))
+                except Exception as exc:
+                    app.logger.warning("InstantMesh falhou para objeto %s: %s", obj["label"], exc)
+                    object_meta.append(dict(
+                        url=f"/projects/{pid}/semantica/objects/{obj['file']}",
+                        width_m=obj["width_m"], height_m=obj["height_m"],
+                        x_m=obj["x_m"], z_m=obj["z_m"], bbox=obj["bbox"],
+                        label=obj["label"], reconstruction="billboard_fallback"
+                    ))
+            if object_meta:
+                meta["photo_objects"] = object_meta
+        except Exception as exc:
+            app.logger.warning("extração/reconstrução de objetos falhou: %s", exc)
+
         marca("árvores e objetos 3D")
 
         # Hunyuan3D gera a malha da edificação; o modelo procedural é fallback.
