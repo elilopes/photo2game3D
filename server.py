@@ -37,6 +37,9 @@ import ai_reconstruction
 import building_reconstruction
 import image_to_3d
 import model_manager
+import reconstruction_pipeline
+import model_comparator
+import world_models
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -278,14 +281,16 @@ def generate():
                 sprite_path = proj / "semantica" / "trees" / tree["file"]
                 try:
                     with Image.open(sprite_path) as tree_image:
-                        glb = image_to_3d.generate_instantmesh(
-                            tree_image, str(proj / "instantmesh" / "trees"), f"tree_{idx}"
+                        result = reconstruction_pipeline.reconstruct(
+                            tree_image, "object", str(proj / "candidates" / "trees" / str(idx)), f"tree_{idx}"
                         )
+                    winner = result["winner"]
+                    if not winner: raise RuntimeError(f"Nenhum motor produziu malha válida: {result['failures']}")
                     trees_meta.append(dict(
-                        model_url=f"/projects/{pid}/instantmesh/trees/{glb.name}",
-                        width_m=tree["width_m"], height_m=tree["height_m"],
+                        model_url=winner["url"], width_m=tree["width_m"], height_m=tree["height_m"],
                         x_m=tree["x_m"], z_m=tree["z_m"], bbox=tree["bbox"],
-                        reconstruction="instantmesh"
+                        reconstruction=winner["engine"], candidates=result["candidates"],
+                        selection_method=result["selection_method"]
                     ))
                     marca(f"InstantMesh árvore {idx + 1}/{min(len(tree_list), max_trees)}")
                 except Exception as exc:
@@ -322,15 +327,17 @@ def generate():
                 sprite_path = proj / "semantica" / "objects" / obj["file"]
                 try:
                     with Image.open(sprite_path) as object_image:
-                        glb = image_to_3d.generate_instantmesh(
-                            object_image, str(proj / "instantmesh" / "objects"),
+                        result = reconstruction_pipeline.reconstruct(
+                            object_image, "object", str(proj / "candidates" / "objects" / str(idx)),
                             f"object_{idx}_{re.sub(r'[^a-z0-9]+', '_', obj['label'].lower())[:24]}"
                         )
+                    winner = result["winner"]
+                    if not winner: raise RuntimeError(f"Nenhum motor produziu malha válida: {result['failures']}")
                     object_meta.append(dict(
-                        model_url=f"/projects/{pid}/instantmesh/objects/{glb.name}",
-                        width_m=obj["width_m"], height_m=obj["height_m"],
+                        model_url=winner["url"], width_m=obj["width_m"], height_m=obj["height_m"],
                         x_m=obj["x_m"], z_m=obj["z_m"], bbox=obj["bbox"],
-                        label=obj["label"], reconstruction="instantmesh"
+                        label=obj["label"], reconstruction=winner["engine"],
+                        candidates=result["candidates"], selection_method=result["selection_method"]
                     ))
                 except Exception as exc:
                     app.logger.warning("InstantMesh falhou para objeto %s: %s", obj["label"], exc)
@@ -356,17 +363,19 @@ def generate():
                 facade_path = proj / "semantica" / facade["file"]
                 try:
                     with Image.open(facade_path) as facade_image:
-                        glb = image_to_3d.generate_hunyuan3d(
-                            facade_image, str(proj / "hunyuan3d"), "edificacao", texture=True
+                        result = reconstruction_pipeline.reconstruct(
+                            facade_image, "building", str(proj / "candidates" / "building"), "edificacao"
                         )
-                    meta["house"] = dict(
-                        model_url=f"/projects/{pid}/hunyuan3d/{glb.name}",
-                        width_m=facade["width_m"], height_m=facade["height_m"],
-                        depth_m=float(max(facade["width_m"] * 0.55, 2.5)),
-                        dist=facade["dist"], x_m=facade["x_m"], bbox=facade["bbox"],
-                        reconstruction="hunyuan3d", texture=True
-                    )
-                    marca("Hunyuan3D edificação concluída")
+                    winner = result["winner"]
+                    if winner:
+                        meta["house"] = dict(
+                            model_url=winner["url"], width_m=facade["width_m"], height_m=facade["height_m"],
+                            depth_m=float(max(facade["width_m"] * 0.55, 2.5)),
+                            dist=facade["dist"], x_m=facade["x_m"], bbox=facade["bbox"],
+                            reconstruction=winner["engine"], candidates=result["candidates"],
+                            selection_method=result["selection_method"], texture=True
+                        )
+                        marca("Comparação Hunyuan3D-2.1/TRELLIS.2 concluída")
                 except Exception as exc:
                     app.logger.warning("Hunyuan3D indisponível; usando reconstrução procedural: %s", exc)
 
@@ -406,6 +415,46 @@ def generate():
         raise
     return jsonify(id=pid, relief_url=f"/projects/{pid}/cenario.glb", meta=meta)
 
+
+
+
+@app.post("/api/world/reconstruct/<pid>")
+def reconstruct_world(pid):
+    """Run Lyra/VGGT scene services on the original project photograph."""
+    folder=project_dir(pid); photo=folder/"foto.jpg"
+    if not photo.is_file(): abort(404,"Foto original do projeto não encontrada.")
+    results=[]; failures={}
+    for key in ("lyra2","vggt"):
+        if os.getenv("PHOTO2GAME_ENABLE_"+key.upper(),"1").lower() in {"0","false","no","off"}: continue
+        try: results.append(world_models.run_engine(key,str(photo),str(folder/"world"/key)))
+        except Exception as exc: failures[key]=f"{type(exc).__name__}: {exc}"
+    meta_path=folder/"meta.json"; meta=json.loads(meta_path.read_text())
+    meta["world_reconstructions"]=results; meta["world_reconstruction_failures"]=failures
+    meta_path.write_text(json.dumps(meta))
+    return jsonify(results=results,failures=failures,message="Lyra produz mundos exploráveis; VGGT estima geometria e câmeras. Esses artefatos não são pontuados como malhas GLB de objetos.")
+
+@app.post("/api/reconstruction/select/<pid>")
+def select_reconstruction(pid):
+    """Persist a user's manual candidate choice for a house/tree/object."""
+    data=request.get_json(silent=True) or {}
+    kind=data.get("kind"); index=data.get("index"); engine=data.get("engine")
+    if kind not in {"house","photo_objects","trees"} or not isinstance(engine,str):
+        abort(400,"Seleção inválida.")
+    folder=project_dir(pid); path=folder/"meta.json"
+    if not path.is_file(): abort(404,"Metadados do projeto não encontrados.")
+    meta=json.loads(path.read_text())
+    if kind=="house": item=meta.get("house")
+    else:
+        items=meta.get(kind) or []
+        if not isinstance(index,int) or index<0 or index>=len(items): abort(404,"Objeto não encontrado.")
+        item=items[index]
+    if not item: abort(404,"Elemento não encontrado.")
+    candidate=next((c for c in item.get("candidates",[]) if c.get("engine")==engine and c.get("evaluation",{}).get("valid")),None)
+    if not candidate: abort(404,"Candidato válido não encontrado.")
+    item["model_url"]=candidate["url"]; item.pop("url",None)
+    item["reconstruction"]=engine; item["manual_selection"]=True
+    path.write_text(json.dumps(meta))
+    return jsonify(ok=True,selected=engine,meta=meta)
 
 @app.route("/api/scene/<pid>", methods=["GET", "PUT"])
 def scene_state(pid):
