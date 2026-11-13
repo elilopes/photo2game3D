@@ -321,3 +321,16 @@ O endpoint Hunyuan3D deve seguir a API oficial: POST JSON com `image` em base64 
 InstantMesh é um reconstrutor de objetos de imagem única, não um segmentador de árvores: a segmentação do Photo2Game3D fornece o recorte de cada árvore antes da reconstrução. Hunyuan3D gera uma malha condicionada pela imagem e textura, mas não garante fidelidade arquitetônica exata nem recupera faces ocultas. Para edifícios, o resultado deve ser tratado como uma hipótese 3D inferida; fachadas, aberturas, telhado e escala precisam de validação.
 
 Consulte os termos oficiais antes de distribuir ou usar comercialmente os pesos e serviços. Em particular, o Hunyuan3D é distribuído sob a Tencent Hunyuan Community License, com condições próprias e restrições de uso comercial. A licença Apache-2.0 do InstantMesh não altera os termos dos pesos/dados de terceiros que ele utiliza.
+
+
+## Gerenciador de modelos (download e importação manual)
+
+No painel do visualizador, abra **Gerenciar modelos de IA**. Selecione InstantMesh ou Hunyuan3D-2:
+
+- **Baixar automaticamente:** clona o código oficial do GitHub e baixa os pesos do repositório Hugging Face correspondente para `models/InstantMesh` ou `models/Hunyuan3D-2`.
+- **Importar pasta selecionada:** escolha a pasta do repositório/modelo que já baixou manualmente. O navegador envia os arquivos ao servidor e eles são gravados na pasta correspondente dentro de `models/`.
+- **Verificar modelos:** mostra se há arquivos nas pastas e o tamanho armazenado.
+
+O download exige Git instalado. A etapa de pesos usa `huggingface_hub` (incluído nas dependências). Alguns repositórios podem exigir login, aceite da licença ou autorização prévia na página do Hugging Face. Os pesos ocupam vários GB; confira espaço em disco e conexão. Não feche o servidor durante o download ou importação.
+
+**Importante:** baixar/importar os arquivos não instala automaticamente as dependências CUDA/PyTorch específicas nem garante que os motores estejam prontos para inferência. InstantMesh e Hunyuan3D precisam de ambientes Python próprios, compatíveis com suas versões oficiais, e GPU compatível. Configure `INSTANTMESH_PYTHON`, `INSTANTMESH_DIR`, o ambiente/API do Hunyuan3D e as demais variáveis descritas acima. A opção de importação manual recebe a pasta selecionada pelo navegador; para arquivos muito grandes, o envio pode demorar. O modo nuvem continua dispensando os pesos locais: basta configurar os endpoints remotos.
