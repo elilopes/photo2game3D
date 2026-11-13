@@ -8,6 +8,10 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parent
 MODELS = ROOT / "models"
 CATALOG = {
+    "sf3d": {"label":"Stable Fast 3D (principal)", "directory":"StableFast3D", "repo":"https://github.com/Stability-AI/stable-fast-3d.git", "hf_repo":"stabilityai/stable-fast-3d", "kind":"object"},
+    "spar3d": {"label":"SPAR3D", "directory":"SPAR3D", "repo":"https://github.com/Stability-AI/stable-point-aware-3d.git", "hf_repo":"stabilityai/stable-point-aware-3d", "kind":"object"},
+    "hunyuan3d2mv": {"label":"Hunyuan3D-2mv", "directory":"Hunyuan3D-2mv", "repo":"https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git", "hf_repo":"tencent/Hunyuan3D-2mv", "kind":"multiview"},
+    "hunyuanworld1": {"label":"HunyuanWorld-1", "directory":"HunyuanWorld-1", "repo":"https://github.com/Tencent-Hunyuan/HunyuanWorld-1.0.git", "hf_repo":"tencent/HunyuanWorld-1", "kind":"world"},
     "triposr": {"label":"TripoSR", "directory":"TripoSR", "repo":"https://github.com/VAST-AI-Research/TripoSR.git", "hf_repo":"stabilityai/TripoSR", "kind":"object"},
     "instantmesh": {"label":"InstantMesh", "directory":"InstantMesh", "repo":"https://github.com/TencentARC/InstantMesh.git", "hf_repo":"TencentARC/InstantMesh", "kind":"object"},
     "hunyuan3d21": {"label":"Tencent Hunyuan3D-2.1", "directory":"Hunyuan3D-2.1", "repo":"https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git", "hf_repo":"tencent/Hunyuan3D-2.1", "kind":"building"},
@@ -23,6 +27,10 @@ def _has_weights(path: Path) -> bool:
 def _recognized(name: str, path: Path) -> bool:
     if not path.is_dir(): return False
     markers = {
+      "sf3d": (path/"sf3d").is_dir() or (path/"run.py").is_file(),
+      "spar3d": (path/"spar3d").is_dir() or (path/"run.py").is_file(),
+      "hunyuan3d2mv": (path/"hy3dshape").is_dir() or (path/"gradio_app.py").is_file(),
+      "hunyuanworld1": (path/"README.md").is_file(),
       "triposr": (path/"run.py").is_file(),
       "instantmesh": (path/"run.py").is_file() and ((path/"pretrained_weights").exists() or (path/"weights").exists()),
       "hunyuan3d21": (path/"gradio_app.py").is_file() and (path/"hy3dshape").is_dir(),
@@ -39,7 +47,7 @@ def model_status():
         path=MODELS/item["directory"]
         files=[p for p in path.rglob('*') if p.is_file()] if path.exists() else []
         result[key]={"label":item["label"],"path":str(path),"exists":path.exists(),
-          "recognized":_recognized(key,path),"code_present":bool(path.exists() and any((path/m).exists() for m in ({"triposr":["run.py"],"instantmesh":["run.py"],"hunyuan3d21":["gradio_app.py"],"trellis2":["app.py"],"lyra2":["Lyra-2"],"vggt":["vggt"]}.get(key,[])))),
+          "recognized":_recognized(key,path),"code_present":bool(path.exists() and any((path/m).exists() for m in ({"sf3d":["sf3d","run.py"],"spar3d":["spar3d","run.py"],"hunyuan3d2mv":["hy3dshape","gradio_app.py"],"hunyuanworld1":["README.md"],"triposr":["run.py"],"instantmesh":["run.py"],"hunyuan3d21":["gradio_app.py"],"trellis2":["app.py"],"lyra2":["Lyra-2"],"vggt":["vggt"]}.get(key,[])))),
           "weights_present":_has_weights(path) if path.exists() else False,"size_bytes":sum(p.stat().st_size for p in files),
           "kind":item["kind"],"repository":item["repo"],"hf_repo":item["hf_repo"]}
     return result
