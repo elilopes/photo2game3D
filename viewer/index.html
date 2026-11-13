@@ -51,6 +51,10 @@
   .ai-model-actions button { flex:1; min-width:170px; }
   .ai-folder-input { width:100%; margin:8px 0; color:#e8edf2; }
   #ai-modal-status { white-space:pre-wrap; color:#b9d8ff; margin-top:10px; }
+  #reconstruction-review { display:none; position:fixed; right:16px; top:16px; z-index:45; width:min(440px,calc(100vw - 32px)); max-height:80vh; overflow:auto; background:#151d27; border:1px solid #46576a; border-radius:12px; padding:14px; box-shadow:0 12px 48px #000b; }
+  #reconstruction-review.open { display:block; }
+  .candidate-row { border-top:1px solid #344252; padding:9px 0; display:grid; grid-template-columns:1fr auto auto; gap:7px; align-items:center; }
+  .candidate-row small { display:block; color:#aebdca; }
   #hud summary { cursor: pointer; }
   #links a { color: #9cf; display: inline-block; margin: 2px 0; }
   #status { color: #cfe3ff; }
@@ -100,22 +104,51 @@
     <div id="ai-modal-head"><h2 id="ai-modal-title">Gerenciar modelos de IA</h2><button id="ai-modal-close" aria-label="Fechar">✕</button></div>
     <p class="muted">Baixe os arquivos oficiais do Hugging Face e o código do GitHub, ou importe separadamente a pasta baixada de cada modelo.</p>
     <section class="ai-model-card">
-      <div class="ai-model-title"><span>InstantMesh</span><span id="instantmesh-check" class="ai-missing">○ Não reconhecido</span></div>
-      <p>Reconstrução 3D de árvores, objetos e elementos da cena.</p>
-      <div class="ai-model-actions"><button id="instantmesh-download">Baixar automaticamente</button><button id="instantmesh-refresh">Verificar</button></div>
-      <label>Selecionar pasta local do InstantMesh<input id="instantmesh-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
-      <button id="instantmesh-import" style="width:100%">Importar pasta do InstantMesh</button><div id="instantmesh-info" class="muted"></div>
+      <div class="ai-model-title"><span>TripoSR</span><span id="triposr-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Reconstrução rápida de objetos isolados a partir de uma foto.</p>
+      <div class="ai-model-actions"><button id="triposr-download">Baixar automaticamente</button><button id="triposr-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="triposr-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="triposr-import" style="width:100%">Importar pasta</button><div id="triposr-info" class="muted"></div>
     </section>
     <section class="ai-model-card">
-      <div class="ai-model-title"><span>Hunyuan3D-2</span><span id="hunyuan3d-check" class="ai-missing">○ Não reconhecido</span></div>
-      <p>Reconstrução volumétrica de edificações e objetos complexos.</p>
-      <div class="ai-model-actions"><button id="hunyuan3d-download">Baixar automaticamente</button><button id="hunyuan3d-refresh">Verificar</button></div>
-      <label>Selecionar pasta local do Hunyuan3D-2<input id="hunyuan3d-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
-      <button id="hunyuan3d-import" style="width:100%">Importar pasta do Hunyuan3D-2</button><div id="hunyuan3d-info" class="muted"></div>
+      <div class="ai-model-title"><span>InstantMesh</span><span id="instantmesh-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Reconstrução alternativa dos mesmos objetos para comparação.</p>
+      <div class="ai-model-actions"><button id="instantmesh-download">Baixar automaticamente</button><button id="instantmesh-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="instantmesh-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="instantmesh-import" style="width:100%">Importar pasta</button><div id="instantmesh-info" class="muted"></div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Tencent Hunyuan3D-2.1</span><span id="hunyuan3d21-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Geração de malhas e materiais PBR para edificações.</p>
+      <div class="ai-model-actions"><button id="hunyuan3d21-download">Baixar automaticamente</button><button id="hunyuan3d21-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="hunyuan3d21-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="hunyuan3d21-import" style="width:100%">Importar pasta</button><div id="hunyuan3d21-info" class="muted"></div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Microsoft TRELLIS.2-4B</span><span id="trellis2-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Alternativa de alta fidelidade para geometrias e materiais complexos.</p>
+      <div class="ai-model-actions"><button id="trellis2-download">Baixar automaticamente</button><button id="trellis2-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="trellis2-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="trellis2-import" style="width:100%">Importar pasta</button><div id="trellis2-info" class="muted"></div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>NVIDIA Lyra 2.0</span><span id="lyra2-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Geração de mundos 3D exploráveis; requer serviço dedicado e saída de cena compatível.</p>
+      <div class="ai-model-actions"><button id="lyra2-download">Baixar automaticamente</button><button id="lyra2-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="lyra2-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="lyra2-import" style="width:100%">Importar pasta</button><div id="lyra2-info" class="muted"></div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Meta VGGT-1B</span><span id="vggt-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Estimativa de câmeras, profundidade e geometria de cena; ideal com múltiplas vistas.</p>
+      <div class="ai-model-actions"><button id="vggt-download">Baixar automaticamente</button><button id="vggt-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="vggt-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="vggt-import" style="width:100%">Importar pasta</button><div id="vggt-info" class="muted"></div>
     </section>
     <div id="ai-modal-status">Consultando os arquivos dos modelos...</div>
     <p class="muted">O indicador verde só aparece quando o servidor identifica os arquivos de pesos e a estrutura mínima do modelo. O download pode exigir autenticação ou aceite da licença no Hugging Face.</p>
   </div></div>
+  <section id="reconstruction-review" aria-label="Comparar reconstruções"><div class="ai-model-title"><strong>Comparar reconstruções</strong><button id="reconstruction-review-close">✕</button></div><div id="reconstruction-review-content"></div></section>
   <details>
     <summary>Carregar GLB para testar (secundário)</summary>
     <input type="file" id="glb" accept=".glb,.gltf">
