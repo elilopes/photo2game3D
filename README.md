@@ -334,3 +334,48 @@ No painel do visualizador, abra **Gerenciar modelos de IA**. Selecione InstantMe
 O download exige Git instalado. A etapa de pesos usa `huggingface_hub` (incluído nas dependências). Alguns repositórios podem exigir login, aceite da licença ou autorização prévia na página do Hugging Face. Os pesos ocupam vários GB; confira espaço em disco e conexão. Não feche o servidor durante o download ou importação.
 
 **Importante:** baixar/importar os arquivos não instala automaticamente as dependências CUDA/PyTorch específicas nem garante que os motores estejam prontos para inferência. InstantMesh e Hunyuan3D precisam de ambientes Python próprios, compatíveis com suas versões oficiais, e GPU compatível. Configure `INSTANTMESH_PYTHON`, `INSTANTMESH_DIR`, o ambiente/API do Hunyuan3D e as demais variáveis descritas acima. A opção de importação manual recebe a pasta selecionada pelo navegador; para arquivos muito grandes, o envio pode demorar. O modo nuvem continua dispensando os pesos locais: basta configurar os endpoints remotos.
+
+
+## Motores de reconstrução IA (múltiplos modelos)
+
+O painel **Gerenciar IA** reconhece seis motores. O download de código/pesos é opcional e pode exigir dezenas de GB, CUDA compatível e ambientes Python separados.
+
+| Motor | Função no Photo2Game3D | Integração atual |
+|---|---|---|
+| TripoSR | Objetos isolados | Runner local via TRIPOSR_DIR / TRIPOSR_PYTHON, ou HTTP |
+| InstantMesh | Alternativa para os mesmos objetos | Runner local existente, ou HTTP |
+| Tencent Hunyuan3D-2.1 | Edificações | Serviço HTTP dedicado 2.1 |
+| Microsoft TRELLIS.2-4B | Alternativa para edificações | Serviço HTTP dedicado |
+| NVIDIA Lyra 2.0 | Mundo 3D explorável | Serviço HTTP de cena; não é candidato de malha GLB |
+| Meta VGGT-1B | Câmeras, profundidade e geometria da cena | Serviço HTTP de geometria; não é candidato de malha GLB |
+
+### Configuração dos motores
+
+Defina estas variáveis no terminal antes de iniciar o servidor ou no arquivo de inicialização do Windows:
+
+- TRIPOSR_DIR=models/TripoSR, TRIPOSR_PYTHON, opcional TRIPOSR_API_URL, TRIPOSR_API_TOKEN
+- INSTANTMESH_DIR=models/InstantMesh, INSTANTMESH_PYTHON, opcional INSTANTMESH_API_URL
+- HUNYUAN3D21_API_URL, HUNYUAN3D21_API_TOKEN
+- TRELLIS2_API_URL, TRELLIS2_API_TOKEN
+- LYRA2_API_URL, LYRA2_API_TOKEN
+- VGGT_API_URL, VGGT_API_TOKEN
+
+Cada motor pode ser desligado com PHOTO2GAME_ENABLE_TRIPOSR=0, PHOTO2GAME_ENABLE_INSTANTMESH=0, PHOTO2GAME_ENABLE_HUNYUAN3D21=0, PHOTO2GAME_ENABLE_TRELLIS2=0, PHOTO2GAME_ENABLE_LYRA2=0 ou PHOTO2GAME_ENABLE_VGGT=0.
+
+Os serviços HTTP de malha recebem multipart/form-data com o campo image e retornam GLB binário ou JSON contendo glb_base64 (ou model_base64). O adaptador de Lyra/VGGT recebe o mesmo campo e espera um manifesto JSON com artifact_base64 ou artifact_url, além de artifact_format, preview_url e metadata quando disponíveis. Isso mantém as dependências CUDA de cada projeto isoladas do servidor Flask.
+
+### Comparação e seleção manual
+
+Objetos são processados por TripoSR e InstantMesh; edificações por Hunyuan3D-2.1 e TRELLIS.2. As malhas GLB válidas são avaliadas por integridade geométrica, topologia, número de faces e complexidade. O painel permite abrir cada GLB em um visualizador orbital e substituir manualmente a escolha.
+
+**A nota é heurística geométrica, não uma medida de semelhança visual com a fotografia.** Uma única vista não revela as faces ocultas; a pontuação também não afirma que a forma gerada é fiel à realidade. Lyra e VGGT produzem tipos de artefato de cena distintos e, por isso, não são ranqueados junto com GLBs de objetos.
+
+### Requisitos e licenças
+
+- TRELLIS.2-4B: repositório oficial informa Linux testado e GPU NVIDIA com pelo menos 24 GB de VRAM.
+- Hunyuan3D-2.1: o repositório informa cerca de 10 GB VRAM para shape, 21 GB para textura e 29 GB para shape + textura.
+- TripoSR: o README informa aproximadamente 6 GB VRAM para uma imagem em sua configuração padrão.
+- VGGT-1B original tem restrição não comercial conforme o README oficial; para uso comercial, consulte VGGT-1B-Commercial e suas condições de acesso.
+- Hunyuan3D está sujeito à Tencent Hunyuan Community License. Lyra tem licença de código Apache-2.0, mas os pesos têm termos próprios. Confira os termos de cada checkpoint antes de redistribuir ou usar comercialmente.
+
+Fontes oficiais: https://github.com/VAST-AI-Research/TripoSR · https://github.com/TencentARC/InstantMesh · https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 · https://github.com/microsoft/TRELLIS.2 · https://github.com/nv-tlabs/lyra · https://github.com/facebookresearch/vggt.
