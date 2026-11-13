@@ -500,11 +500,47 @@ function renderReconstructionReview(meta, projectId) {
 // ---------- gerenciamento dos modelos de IA ---------------------------------------------------
 const $aiModal = $('ai-modal'), $aiModalStatus = $('ai-modal-status');
 const modelKeys = ['triposr', 'instantmesh', 'hunyuan3d21', 'trellis2', 'lyra2', 'vggt'];
-function setAiModal(open) { $aiModal.classList.toggle('open', open); if (open) refreshModelStatus(); }
+function setAiModal(open) {
+  $aiModal.classList.toggle('open', open);
+  if (open) { refreshModelStatus(); refreshIntegratedAiStatus(); }
+}
 $('manage-ai-open')?.addEventListener('click', () => setAiModal(true));
 $('ai-modal-close')?.addEventListener('click', () => setAiModal(false));
 $aiModal?.addEventListener('click', event => { if (event.target === $aiModal) setAiModal(false); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') setAiModal(false); });
+async function refreshIntegratedAiStatus() {
+  const setIndicator = (id, available, label) => {
+    const element = $(id);
+    if (!element) return;
+    element.textContent = (available ? '✓ ' : '○ ') + label;
+    element.className = available ? 'ai-recognized' : 'ai-missing';
+  };
+  try {
+    const status = await api('/api/status');
+    const depthAvailable = status.depth === 'ai';
+    setIndicator('depth-ai-check', depthAvailable,
+      depthAvailable ? 'Backend de IA disponível' : 'Backend de IA indisponível');
+    $('depth-ai-info').textContent = depthAvailable
+      ? 'Depth Anything V2 Small · PyTorch e Transformers detectados; os pesos são carregados pelo Transformers na primeira inferência.'
+      : (status.depth === 'heuristic'
+        ? 'Modo heurístico ativo; o modelo de IA não está sendo usado.'
+        : 'Instale PyTorch e Transformers para habilitar a inferência de profundidade por IA.');
+    const segmentation = status.ai || {};
+    setIndicator('segmentation-ai-check', Boolean(segmentation.available),
+      segmentation.available ? 'Backend configurado' : 'Backend indisponível');
+    $('segmentation-ai-info').textContent = segmentation.available
+      ? 'facebook/mask2former-swin-large-coco-panoptic · ' +
+        (segmentation.provider === 'huggingface-inference'
+          ? 'API Hugging Face configurada; requer token válido e disponibilidade do provedor.'
+          : 'Transformers local disponível; os pesos podem ser baixados/carregados na primeira inferência.')
+      : 'Configure o ambiente local (PyTorch + Transformers) ou HF_TOKEN para usar a API do Hugging Face.';
+  } catch (error) {
+    setIndicator('depth-ai-check', false, 'Não foi possível verificar');
+    setIndicator('segmentation-ai-check', false, 'Não foi possível verificar');
+    $('depth-ai-info').textContent = error.message;
+    $('segmentation-ai-info').textContent = error.message;
+  }
+}
 async function refreshModelStatus(key = null) {
   try {
     const data = await api('/api/models');
