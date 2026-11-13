@@ -34,6 +34,7 @@ from panorama import build_panorama
 import scene_assets
 import photo_enhance
 import ai_reconstruction
+import building_reconstruction
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -214,17 +215,24 @@ def generate():
         # Casa principal da foto (recorte com transparência, usado como fachada 3D no viewer)
         try:
             gl_house = gl if gl is not None else int(img.size[1] * 0.73)
-            house = ai_reconstruction.extract_house(img, semantic, str(proj / "semantica"), fov=fov) if semantic else None
-            if house:
-                meta["house"] = dict(url=f"/projects/{pid}/semantica/{house['file']}", width_m=house["width_m"],
-                                     height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"],
-                                     bbox=house.get("bbox"), segmentation="ai")
+            building = building_reconstruction.build_building(
+                img, semantic, str(proj / "semantica"), fov=fov
+            ) if semantic else None
+            if building:
+                meta["house"] = dict(
+                    model_url=f"/projects/{pid}/semantica/{building['file']}",
+                    width_m=building["width_m"], height_m=building["height_m"],
+                    depth_m=building["depth_m"], dist=building["dist"], x_m=building["x_m"],
+                    bbox=building["bbox"], reconstruction=building["type"],
+                    components=building["components"], door_detected=building["door_detected"],
+                    windows_detected=building["windows_detected"]
+                )
             else:
                 house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
                 if house:
                     meta["house"] = dict(url=f"/projects/{pid}/casa/{house['file']}", width_m=house["width_m"],
                                          height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"],
-                                         segmentation="opencv")
+                                         segmentation="opencv", reconstruction="facade_proxy")
         except Exception as exc:
             app.logger.warning("extract_house falhou: %s", exc)
 
