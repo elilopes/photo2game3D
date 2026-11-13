@@ -264,6 +264,9 @@ async function openProject(id) {
       next.env.hills = false;
       next.env.square = true;
       next.relief.enabled = false;   // piso da foto substitui o relevo
+    } else if (meta?.trees?.length || meta?.photo_objects?.length) {
+      // Mesmo sem piso retificado, mantém os modelos de árvores/objetos da foto.
+      next.env.square = true;
     }
     next.objects = scatter(next, 7, meta?.context || 'mixed');
     if (meta?.house) next.objects = next.objects.filter(o => o.type !== 'house' && o.type !== 'rowhouse');
