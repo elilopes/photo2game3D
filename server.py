@@ -434,20 +434,40 @@ def generate():
 
 
 
+@app.post("/api/reconstruct/multiview/<pid>")
+def reconstruct_multiview(pid):
+    """Build an object mesh from two or more supplied views using Hunyuan3D-2mv."""
+    folder=project_dir(pid)
+    uploads=request.files.getlist("images")
+    if len(uploads)<2: abort(400,"Envie pelo menos duas fotografias do mesmo objeto.")
+    if not ai_model_settings.is_enabled("hunyuan3d2mv"): abort(400,"Hunyuan3D-2mv está desativado nas configurações.")
+    images=[]
+    for upload in uploads:
+        try: images.append(ImageOps.exif_transpose(Image.open(upload.stream)).convert("RGB"))
+        except Exception: abort(400,"Uma das fotografias não pôde ser aberta.")
+    try:
+        output=image_to_3d.generate_hunyuan3d2mv(images,str(folder/"candidates"/"hunyuan3d2mv"),"multiview_object")
+        relative=output.resolve().relative_to(folder.resolve())
+        return jsonify(ok=True,engine="hunyuan3d2mv",url=f"/projects/{pid}/{relative.as_posix()}")
+    except Exception as exc:
+        app.logger.exception("Hunyuan3D-2mv falhou")
+        return jsonify(error=f"{type(exc).__name__}: {exc}"),500
+
+
 @app.post("/api/world/reconstruct/<pid>")
 def reconstruct_world(pid):
     """Run Lyra/VGGT scene services on the original project photograph."""
     folder=project_dir(pid); photo=folder/"foto.jpg"
     if not photo.is_file(): abort(404,"Foto original do projeto não encontrada.")
     results=[]; failures={}
-    for key in ("lyra2","vggt"):
+    for key in ("hunyuanworld1","lyra2","vggt"):
         if not ai_model_settings.is_enabled(key): continue
         try: results.append(world_models.run_engine(key,str(photo),str(folder/"world"/key)))
         except Exception as exc: failures[key]=f"{type(exc).__name__}: {exc}"
     meta_path=folder/"meta.json"; meta=json.loads(meta_path.read_text())
     meta["world_reconstructions"]=results; meta["world_reconstruction_failures"]=failures
     meta_path.write_text(json.dumps(meta))
-    return jsonify(results=results,failures=failures,message="Lyra produz mundos exploráveis; VGGT estima geometria e câmeras. Esses artefatos não são pontuados como malhas GLB de objetos.")
+    return jsonify(results=results,failures=failures,message="HunyuanWorld-1/Lyra produzem mundos exploráveis; VGGT estima geometria e câmeras. Esses artefatos não são pontuados como malhas GLB de objetos.")
 
 @app.post("/api/reconstruction/select/<pid>")
 def select_reconstruction(pid):

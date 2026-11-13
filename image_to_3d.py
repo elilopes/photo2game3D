@@ -35,6 +35,9 @@ def status() -> dict[str, Any]:
     hy_remote = hy_url.startswith(("http://", "https://"))
     return {
         "mode": mode,
+        "sf3d": {"provider":"http-api","configured":bool(os.getenv("SF3D_API_URL")),"endpoint_env":"SF3D_API_URL","model":"stabilityai/stable-fast-3d","role":"primary"},
+        "spar3d": {"provider":"http-api","configured":bool(os.getenv("SPAR3D_API_URL")),"endpoint_env":"SPAR3D_API_URL","model":"stabilityai/stable-point-aware-3d","role":"alternative"},
+        "hunyuan3d2mv": {"provider":"http-api","configured":bool(os.getenv("HUNYUAN3D2MV_API_URL")),"endpoint_env":"HUNYUAN3D2MV_API_URL","model":"tencent/Hunyuan3D-2mv","role":"multi-view"},
         "triposr": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("TRIPOSR_DIR","models/TripoSR"))/"run.py").is_file(),"remote_configured":bool(os.getenv("TRIPOSR_API_URL")),"repository":"https://github.com/VAST-AI-Research/TripoSR"},
         "trellis2": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("TRELLIS2_DIR","models/TRELLIS.2"))/"trellis2").is_dir(),"configured":bool(os.getenv("TRELLIS2_API_URL")) or (Path(os.getenv("TRELLIS2_DIR","models/TRELLIS.2"))/"trellis2").is_dir(),"repository":"https://github.com/microsoft/TRELLIS.2","model":"microsoft/TRELLIS.2-4B"},
         "hunyuan3d21": {"provider":"subprocess-or-http","local_configured":(Path(os.getenv("HUNYUAN3D21_DIR","models/Hunyuan3D-2.1"))/"hy3dshape").is_dir(),"configured":bool(os.getenv("HUNYUAN3D21_API_URL")) or (Path(os.getenv("HUNYUAN3D21_DIR","models/Hunyuan3D-2.1"))/"hy3dshape").is_dir(),"repository":"https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1"},
@@ -295,3 +298,40 @@ def generate_vggt(image: Image.Image, output_dir: str, name: str) -> Path:
 
 def generate_lyra2(image: Image.Image, output_dir: str, name: str) -> Path:
     return _configured_remote("LYRA2",image,output_dir,name)
+
+
+# SF3D/SPAR3D use dedicated inference services to isolate CUDA/PyTorch dependencies.
+def generate_sf3d(image: Image.Image, output_dir: str, name: str) -> Path:
+    return _configured_remote("SF3D", image, output_dir, name)
+
+def generate_spar3d(image: Image.Image, output_dir: str, name: str) -> Path:
+    return _configured_remote("SPAR3D", image, output_dir, name)
+
+def generate_hunyuan3d2mv(images: list[Image.Image], output_dir: str, name: str) -> Path:
+    endpoint=os.getenv("HUNYUAN3D2MV_API_URL")
+    if not endpoint: raise RuntimeError("Configure HUNYUAN3D2MV_API_URL para o serviço Hunyuan3D-2mv.")
+    if len(images)<2: raise ValueError("Hunyuan3D-2mv requer pelo menos duas fotografias do mesmo objeto.")
+    files=[]
+    for index,image in enumerate(images):
+        buffer=io.BytesIO()
+        _white_background(image,(1024,1024)).save(buffer,format="PNG")
+        files.append(("images",(f"view_{index+1}.png",buffer.getvalue(),"image/png")))
+    headers={}
+    token=os.getenv("HUNYUAN3D2MV_API_TOKEN","")
+    if token: headers["Authorization"]="Bearer "+token
+    response=requests.post(endpoint,files=files,data={"model":"hunyuan3d2mv","type":"glb"},
+        headers=headers,timeout=int(os.getenv("HUNYUAN3D2MV_TIMEOUT","3600")))
+    response.raise_for_status()
+    out=Path(output_dir)
+    out.mkdir(parents=True,exist_ok=True)
+    target=out/(name+".glb")
+    if "json" in response.headers.get("content-type","").lower():
+        payload=response.json()
+        encoded=payload.get("glb_base64") or payload.get("model_base64")
+        if not encoded: raise RuntimeError(f"Hunyuan3D-2mv não retornou GLB: {payload}")
+        target.write_bytes(base64.b64decode(encoded))
+    else:
+        target.write_bytes(response.content)
+    if target.stat().st_size<16 or target.read_bytes()[:4]!=b"glTF":
+        raise RuntimeError("Hunyuan3D-2mv não retornou um GLB válido.")
+    return target

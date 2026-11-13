@@ -118,6 +118,34 @@
       <p>Modelo de segmentação semântica/panóptica, usado para identificar edificações, árvores, chão e objetos na foto. Pode operar localmente com Transformers ou pela API de inferência do Hugging Face.</p>
       <div id="segmentation-ai-info" class="muted">Modelo: facebook/mask2former-swin-large-coco-panoptic</div>
     </section>
+    <h3>Construção de objetos 3D</h3>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Stable Fast 3D (SF3D) · Principal</span><span id="sf3d-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Motor principal para gerar rapidamente objetos 3D texturizados a partir de uma imagem. A inferência requer serviço configurado em SF3D_API_URL.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-sf3d" checked> Usar como modelo principal</label>
+      <div class="ai-model-actions"><button id="sf3d-download">Baixar código e pesos</button><button id="sf3d-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="sf3d-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="sf3d-import" style="width:100%">Importar pasta</button><div id="sf3d-info" class="muted"></div>
+    </section>
+    <h3>Modelos alternativos para objetos 3D</h3>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>SPAR3D</span><span id="spar3d-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Alternativa para reconstrução de objetos com nuvem de pontos editável e refinamento geométrico. Requer serviço configurado em SPAR3D_API_URL.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-spar3d" checked> Usar como alternativa</label>
+      <div class="ai-model-actions"><button id="spar3d-download">Baixar código e pesos</button><button id="spar3d-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="spar3d-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="spar3d-import" style="width:100%">Importar pasta</button><div id="spar3d-info" class="muted"></div>
+    </section>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>Hunyuan3D-2mv · Múltiplas fotografias</span><span id="hunyuan3d2mv-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Reconstrói um objeto a partir de diferentes ângulos. Requer serviço configurado em HUNYUAN3D2MV_API_URL.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-hunyuan3d2mv" checked> Habilitar reconstrução multi-view</label>
+      <div class="ai-model-actions"><button id="hunyuan3d2mv-download">Baixar código e pesos</button><button id="hunyuan3d2mv-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="hunyuan3d2mv-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="hunyuan3d2mv-import" style="width:100%">Importar pasta</button><div id="hunyuan3d2mv-info" class="muted"></div>
+      <label>Fotografias do mesmo objeto<input id="multiview-photos" class="ai-folder-input" type="file" accept="image/*" multiple></label>
+      <button id="multiview-generate" style="width:100%">Reconstruir objeto com múltiplas fotos</button><div id="multiview-result" class="muted"></div>
+    </section>
     <h3>Modelos de IA alternativos</h3>
     <section class="ai-model-card">
       <div class="ai-model-title"><span>TripoSR</span><span id="triposr-check" class="ai-missing">○ Não reconhecido</span></div>
@@ -167,8 +195,17 @@
       <label>Selecionar pasta local<input id="vggt-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
       <button id="vggt-import" style="width:100%">Importar pasta</button><div id="vggt-info" class="muted"></div>
     </section>
+    <h3>Construção de ambientes 3D</h3>
+    <section class="ai-model-card">
+      <div class="ai-model-title"><span>HunyuanWorld-1</span><span id="hunyuanworld1-check" class="ai-missing">○ Não reconhecido</span></div>
+      <p>Modelo complementar para geração de ambientes e mundos 3D. Requer serviço configurado em HUNYUANWORLD1_API_URL.</p>
+      <label class="ai-enable-row"><input type="checkbox" id="enable-hunyuanworld1" checked> Habilitar geração de ambientes</label>
+      <div class="ai-model-actions"><button id="hunyuanworld1-download">Baixar código e pesos</button><button id="hunyuanworld1-refresh">Verificar</button></div>
+      <label>Selecionar pasta local<input id="hunyuanworld1-folder" class="ai-folder-input" type="file" webkitdirectory directory multiple></label>
+      <button id="hunyuanworld1-import" style="width:100%">Importar pasta</button><div id="hunyuanworld1-info" class="muted"></div>
+    </section>
     <p class="muted">Desative os modelos pesados para reduzir o tempo de processamento. As alterações são salvas e aplicadas às próximas reconstruções.</p>
-    <button id="world-reconstruct" style="width:100%">Gerar geometria e mundo explorável (Lyra + VGGT)</button><div id="world-results" class="muted"></div>
+    <button id="world-reconstruct" style="width:100%">Gerar ambiente 3D (HunyuanWorld-1 + Lyra + VGGT)</button><div id="world-results" class="muted"></div>
     <div id="ai-modal-status">Consultando os arquivos dos modelos...</div>
     <p class="muted">O indicador verde só aparece quando o servidor identifica os arquivos de pesos e a estrutura mínima do modelo. O download pode exigir autenticação ou aceite da licença no Hugging Face.</p>
   </div></div>

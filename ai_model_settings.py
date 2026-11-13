@@ -4,7 +4,7 @@ import json, os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 SETTINGS_FILE=ROOT/"data"/"ai_model_settings.json"
-MODEL_KEYS=("triposr","instantmesh","hunyuan3d21","trellis2","lyra2","vggt")
+MODEL_KEYS=("sf3d","triposr","instantmesh","spar3d","hunyuan3d21","trellis2","hunyuan3d2mv","lyra2","vggt","hunyuanworld1")
 DEFAULTS={key:True for key in MODEL_KEYS}
 
 def get_settings() -> dict:

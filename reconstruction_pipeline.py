@@ -8,7 +8,7 @@ import image_to_3d
 import ai_model_settings
 from model_comparator import rank_candidates
 
-OBJECT_ENGINES=("triposr","instantmesh")
+OBJECT_ENGINES=("sf3d","triposr","instantmesh","spar3d")
 BUILDING_ENGINES=("hunyuan3d21","trellis2")
 
 def _enabled(key: str) -> bool:
@@ -30,6 +30,9 @@ def reconstruct(image, category: str, output_dir: str, name: str) -> dict:
         except Exception as exc:
             failures[key]=f"{type(exc).__name__}: {exc}"
     ranked=rank_candidates(candidates)
-    winner=next((x for x in ranked if x["evaluation"].get("valid")),None)
+    # SF3D tem precedencia quando sua malha passa na validacao geometrica.
+    winner=next((x for x in ranked if x["engine"]=="sf3d" and x["evaluation"].get("valid")),None)
+    if winner is None:
+        winner=next((x for x in ranked if x["evaluation"].get("valid")),None)
     return {"winner":winner,"candidates":ranked,"failures":failures,
       "selection_method":"geometric_integrity_heuristic","perceptual_similarity_evaluated":False}
