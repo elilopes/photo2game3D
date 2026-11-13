@@ -147,24 +147,37 @@ async function loadPanorama(url) {
 // meta.floor  = { url, width_m, depth_m }  (só presente se a foto tem chão)
 // meta.trees  = [ { url, width_m, height_m }, ... ] (pode ser [] ou ausente)
 async function loadPhotoAssets(meta, squareSize = 60) {
-  if (!meta?.floor) {
-    // Sem chão detectado: limpa qualquer piso anterior
+  const loader = new THREE.TextureLoader();
+  let floorTex = null;
+  if (meta?.floor?.url) {
+    floorTex = await loader.loadAsync(meta.floor.url);
+    floorTex.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  const photoMeshes = [...(meta?.trees || []), ...(meta?.photo_objects || [])];
+  const trees = await Promise.all(photoMeshes.map(async info => {
+    if (!info.model_url) return info;
+    try {
+      const gltf = await gltfLoader.loadAsync(info.model_url);
+      return { ...info, model: gltf.scene };
+    } catch (error) {
+      console.warn('Falha ao carregar malha InstantMesh; usando fallback:', error);
+      return info;
+    }
+  }));
+
+  if (!floorTex && trees.length === 0) {
     stage.setSquare(null);
     return;
   }
-  const loader = new THREE.TextureLoader();
-  const floorTex = await loader.loadAsync(meta.floor.url);
-  floorTex.colorSpace = THREE.SRGBColorSpace;
-  const trees = meta.trees || [];
   stage.setSquare({
     floorTex,
-    widthM: meta.floor.width_m,
-    depthM: meta.floor.depth_m,
+    widthM: meta?.floor?.width_m || 0,
+    depthM: meta?.floor?.depth_m || 0,
     squareSize,
     trees,
   });
 }
-
 
 async function loadHouse(meta) {
   const info = meta?.house;
@@ -251,6 +264,9 @@ async function openProject(id) {
       next.env.hills = false;
       next.env.square = true;
       next.relief.enabled = false;   // piso da foto substitui o relevo
+    } else if (meta?.trees?.length || meta?.photo_objects?.length) {
+      // Mesmo sem piso retificado, mantém os modelos de árvores/objetos da foto.
+      next.env.square = true;
     }
     next.objects = scatter(next, 7, meta?.context || 'mixed');
     if (meta?.house) next.objects = next.objects.filter(o => o.type !== 'house' && o.type !== 'rowhouse');
@@ -287,6 +303,8 @@ async function checkServer() {
     const warn = [];
     if (s.depth === 'missing') warn.push('Modelo de profundidade não instalado: pip install torch transformers.');
     if (s.ai && !s.ai.available) warn.push('Segmentação semântica indisponível no modo ' + s.ai.mode + '. Configure o modelo local ou HF_TOKEN para nuvem; o sistema usará o recorte OpenCV.');
+    if (s.image_to_3d?.mode === 'local' && !s.image_to_3d?.instantmesh?.local_configured) warn.push('InstantMesh local não configurado: defina INSTANTMESH_DIR e INSTANTMESH_PYTHON; árvores e objetos usarão billboards.');
+    if (s.image_to_3d?.mode === 'cloud' && !s.image_to_3d?.instantmesh?.remote_configured) warn.push('InstantMesh na nuvem requer INSTANTMESH_API_URL; sem endpoint, objetos usarão billboards.');
     if (!s.converter) warn.push('Blender não encontrado: o export gera só GLB e OBJ. Defina BLENDER=/caminho/blender.');
     setWarn(warn);
   } catch {

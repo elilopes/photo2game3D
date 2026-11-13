@@ -242,3 +242,82 @@ Execute `iniciar_photo2game3d.bat` com duplo clique. O menu permite selecionar:
 2. **Nuvem:** solicita um token Hugging Face, define `PHOTO2GAME_AI_MODE=cloud` e executa o servidor. O token fica apenas no ambiente do processo e não é gravado no arquivo BAT.
 
 Também é possível configurar manualmente as variáveis de ambiente e executar `python server.py`.
+
+
+## Motores Image-to-3D: InstantMesh + Hunyuan3D
+
+O Photo2Game3D pode usar motores especializados para substituir billboards e proxies por malhas 3D reais:
+
+- **InstantMesh**: árvores e objetos isolados (mobiliário, veículos, animais e outros elementos detectados) extraídos pela segmentação semântica. Processa até quatro árvores e quatro objetos por fotografia por padrão (`PHOTO2GAME_MAX_INSTANTMESH_TREES` e `PHOTO2GAME_MAX_INSTANTMESH_OBJECTS`); se o modelo falhar, mantém o billboard segmentado.
+- **Hunyuan3D**: fachada isolada da edificação enviada ao serviço Image-to-3D com geração de textura habilitada. O GLB gerado é dimensionado e posicionado no viewer. Se a API falhar, a reconstrução procedural e o recorte OpenCV continuam disponíveis.
+- **Viewer**: carrega os GLBs gerados, mantém o sistema Three.js/Rapier e inclui as malhas na exportação da cena.
+
+### Dependências separadas
+
+Os dois projetos têm pilhas de ML grandes e versões de PyTorch/CUDA próprias. Por isso, o Photo2Game3D não instala todos os pacotes deles no ambiente Flask principal. Os motores são chamados por subprocesso ou API HTTP.
+
+#### InstantMesh local
+
+1. Clone o repositório oficial em uma pasta separada: `https://github.com/TencentARC/InstantMesh`.
+2. Prepare o ambiente recomendado pelo projeto (Python 3.10, PyTorch 2.1, CUDA 12.1 e xformers compatível).
+3. Configure:
+
+```powershell
+$env:PHOTO2GAME_3D_MODE = "local"
+$env:INSTANTMESH_DIR = "D:\AI\InstantMesh"
+$env:INSTANTMESH_PYTHON = "D:\AI\envs\instantmesh\python.exe"
+$env:INSTANTMESH_CONFIG = "configs/instant-mesh-large.yaml"
+```
+
+O adaptador chama `run.py` com `--no_rembg --export_texmap`, converte o OBJ texturizado para GLB e guarda o resultado dentro do projeto gerado.
+
+#### Hunyuan3D local
+
+1. Clone o repositório oficial: `https://github.com/Tencent-Hunyuan/Hunyuan3D-2`.
+2. Instale suas dependências em um ambiente Python próprio, seguindo a documentação oficial.
+3. Inicie a API local. O BAT pode fazer isso se você informar a pasta do repositório e o executável Python:
+
+```powershell
+python api_server.py --host 127.0.0.1 --port 8081 --enable_tex
+```
+
+4. O Photo2Game3D chama `http://127.0.0.1:8081/generate`, envia a imagem em base64 com `texture=true` e recebe o GLB.
+
+A documentação do Hunyuan3D indica aproximadamente 6 GB de VRAM para geração de forma e 16 GB para geração de forma + textura. A disponibilidade real depende do modelo, resolução e configuração.
+
+#### Modo nuvem
+
+Defina endpoints acessíveis por HTTPS:
+
+```powershell
+$env:PHOTO2GAME_3D_MODE = "cloud"
+$env:HUNYUAN3D_API_URL = "https://seu-servidor-hunyuan/generate"
+$env:HUNYUAN3D_API_TOKEN = "token-opcional"
+$env:INSTANTMESH_API_URL = "https://seu-servidor-instantmesh/generate"
+$env:INSTANTMESH_API_TOKEN = "token-opcional"
+```
+
+O endpoint Hunyuan3D deve seguir a API oficial: POST JSON com `image` em base64 e parâmetros como `type: "glb"` e `texture: true`; resposta deve ser um GLB binário ou JSON com `model_base64`/`glb_base64`.
+
+**InstantMesh não possui um provedor oficial de inferência hospedada publicado no model card.** Para o modo nuvem, é necessário hospedar um pequeno adaptador HTTP próprio que aceite `multipart/form-data` no campo `image` e retorne um GLB binário (ou JSON com `glb_base64`). Não há endpoint de nuvem da Tencent configurado automaticamente.
+
+### Variáveis e diagnóstico
+
+| Variável | Finalidade |
+|---|---|
+| `PHOTO2GAME_3D_MODE` | `local`, `cloud` ou `off` para motores 3D |
+| `INSTANTMESH_DIR` | Checkout local do InstantMesh |
+| `INSTANTMESH_PYTHON` | Python do ambiente InstantMesh |
+| `INSTANTMESH_API_URL` | Endpoint HTTP de InstantMesh na nuvem |
+| `HUNYUAN3D_API_URL` | Endpoint `/generate` do Hunyuan3D |
+| `HUNYUAN3D_API_TOKEN` | Token Bearer opcional |
+| `PHOTO2GAME_MAX_INSTANTMESH_TREES` | Limite de árvores processadas por imagem (padrão 4) |
+| `PHOTO2GAME_MAX_INSTANTMESH_OBJECTS` | Limite de objetos não arbóreos processados por imagem (padrão 4) |
+
+`GET /api/status` expõe configuração e disponibilidade declarada dos motores. Uma API remota configurada não significa que o serviço esteja saudável; confirme também o endpoint do modelo.
+
+### Limitações, licenças e fidelidade
+
+InstantMesh é um reconstrutor de objetos de imagem única, não um segmentador de árvores: a segmentação do Photo2Game3D fornece o recorte de cada árvore antes da reconstrução. Hunyuan3D gera uma malha condicionada pela imagem e textura, mas não garante fidelidade arquitetônica exata nem recupera faces ocultas. Para edifícios, o resultado deve ser tratado como uma hipótese 3D inferida; fachadas, aberturas, telhado e escala precisam de validação.
+
+Consulte os termos oficiais antes de distribuir ou usar comercialmente os pesos e serviços. Em particular, o Hunyuan3D é distribuído sob a Tencent Hunyuan Community License, com condições próprias e restrições de uso comercial. A licença Apache-2.0 do InstantMesh não altera os termos dos pesos/dados de terceiros que ele utiliza.

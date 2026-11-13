@@ -10,6 +10,7 @@ const pick = (o, keys) => J(keys.map(k => o[k]));
 
 function disposeTree(root) {
   root.traverse(o => {
+    if (o.userData.sharedAsset) return;
     if (o.geometry) o.geometry.dispose();
     if (o.material && !o.userData.sharedMaterial) {
       for (const m of [].concat(o.material)) { m.map?.dispose(); m.dispose(); }
@@ -128,42 +129,34 @@ export class Stage {
   // floorTex: THREE.Texture já carregada
   // trees: [ { url, width_m, height_m } ]
   setSquare(assets) {
-    // Guarda o último conjunto não-nulo para poder reconstruir ao mudar squareSize/square pelo painel
     if (assets) this._squareAssets = assets;
-    // Remove piso e árvores antigos
     if (this.nodes.square) { this.nodes.square.removeFromParent(); disposeTree(this.nodes.square); this.nodes.square = null; }
     if (this.nodes.treesPhoto) { this.nodes.treesPhoto.removeFromParent(); disposeTree(this.nodes.treesPhoto); this.nodes.treesPhoto = null; }
     removeColliders(this.rworld, this.cols.walls);
     this.cols.walls = [];
     removeColliders(this.rworld, this.cols.square || []);
     this.cols.square = [];
-
     if (!assets) return;
 
     const sz = assets.squareSize || 60;
+    if (assets.floorTex) {
+      this.nodes.square = buildSquareFloor(assets.floorTex, assets.widthM, assets.depthM, sz);
+      this.scene.add(this.nodes.square);
+      this.nodes.square.updateWorldMatrix(true, true);
+      this.cols.square = addMeshColliders(this.rworld, this.nodes.square);
+      this.pending.walls = true;
 
-    // Piso retificado
-    this.nodes.square = buildSquareFloor(assets.floorTex, assets.widthM, assets.depthM, sz);
-    this.scene.add(this.nodes.square);
-    // Colisor do piso: sem ele o personagem atravessa o chão e cai no loop de respawn
-    this.nodes.square.updateWorldMatrix(true, true);
-    this.cols.square = addMeshColliders(this.rworld, this.nodes.square);
-    this.pending.walls = true;   // força um step em commitColliders() para o Rapier enxergar o piso
+      const walls = buildWalls(sz);
+      walls.name = 'paredes_colisor';
+      this.scene.add(walls);
+      this.nodes.wallsNode = walls;
+      this.pending.walls = true;
+    }
 
-    // Paredes invisíveis (colisores)
-    const walls = buildWalls(sz);
-    walls.name = 'paredes_colisor';
-    this.scene.add(walls);
-    // guardamos na nodes para exportNodes ignorar (paredes são só colisão)
-    this.nodes.wallsNode = walls;
-    this.pending.walls = true;
-
-    // Árvores
     if (assets.trees && assets.trees.length > 0) {
       this.nodes.treesPhoto = buildTrees(assets.trees, sz);
       this.scene.add(this.nodes.treesPhoto);
     }
-
     this.commitColliders();
   }
 
@@ -183,9 +176,25 @@ export class Stage {
     group.name = 'edificacao_reconstruida';
 
     if (info.model) {
-      group.add(info.model);
+      const model = info.model;
+      model.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(model);
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      if (size.x > 0 && size.y > 0 && size.z > 0) {
+        model.position.sub(center);
+        model.scale.set(
+          (info.width_m || size.x) / size.x,
+          (info.height_m || size.y) / size.y,
+          (info.depth_m || info.width_m || size.z) / size.z
+        );
+        model.updateMatrixWorld(true);
+        const fitted = new THREE.Box3().setFromObject(model);
+        model.position.y -= fitted.min.y;
+      }
+      group.add(model);
       group.position.set(info.x_m || 0, 0, -(info.dist || 0));
-      group.userData.reconstruction = info.reconstruction || 'procedural_volumetric';
+      group.userData.reconstruction = info.reconstruction || 'image_to_3d';
     } else if (info.url) {
       const depth = Math.max(0.35, Math.min(0.9, info.width_m * 0.06));
       const tex = new THREE.TextureLoader().load(info.url);
