@@ -2,6 +2,8 @@
 from __future__ import annotations
 import os
 from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+PROJECTS=ROOT/"projects"
 import image_to_3d
 from model_comparator import rank_candidates
 
@@ -20,7 +22,10 @@ def reconstruct(image, category: str, output_dir: str, name: str) -> dict:
         try:
             fn=getattr(image_to_3d,"generate_"+key)
             path=fn(image,str(out/key),name)
-            candidates.append({"engine":key,"label":key,"path":str(path),"url":f"/projects/{out.parent.name}/{key}/{Path(path).name}"})
+            project_id=next((part for part in out.parts if len(part)==8 and all(ch in "0123456789abcdef" for ch in part)),None)
+            if not project_id: raise RuntimeError("Não foi possível identificar o projeto para publicar a malha.")
+            relative=Path(path).resolve().relative_to((PROJECTS/project_id).resolve())
+            candidates.append({"engine":key,"label":key,"path":str(path),"url":f"/projects/{project_id}/{relative.as_posix()}"})
         except Exception as exc:
             failures[key]=f"{type(exc).__name__}: {exc}"
     ranked=rank_candidates(candidates)
