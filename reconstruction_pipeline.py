@@ -8,7 +8,7 @@ import image_to_3d
 import ai_model_settings
 from model_comparator import rank_candidates
 
-OBJECT_ENGINES=("sf3d","triposr","instantmesh","spar3d")
+OBJECT_ENGINES=("sf3d","triposr","instantmesh","spar3d","hunyuan3d21","trellis2")
 BUILDING_ENGINES=("hunyuan3d21","trellis2")
 
 def _enabled(key: str) -> bool:
