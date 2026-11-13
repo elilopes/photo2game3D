@@ -453,56 +453,47 @@ function frame(now) {
   }
 }
 
-// ---------- gerenciamento dos pesos dos modelos -----------------------------------------------
-const $modelChoice = $('model-choice'), $modelFolder = $('model-folder');
-const $modelStatus = $('model-status'), $modelDownload = $('model-download');
-const $modelImport = $('model-import'), $modelRefresh = $('model-refresh');
-
-async function refreshModelStatus() {
+// ---------- gerenciamento dos modelos de IA ---------------------------------------------------
+const $aiModal = $('ai-modal'), $aiModalStatus = $('ai-modal-status');
+const modelKeys = ['instantmesh', 'hunyuan3d'];
+function setAiModal(open) { $aiModal.classList.toggle('open', open); if (open) refreshModelStatus(); }
+$('manage-ai-open')?.addEventListener('click', () => setAiModal(true));
+$('ai-modal-close')?.addEventListener('click', () => setAiModal(false));
+$aiModal?.addEventListener('click', event => { if (event.target === $aiModal) setAiModal(false); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') setAiModal(false); });
+async function refreshModelStatus(key = null) {
   try {
     const data = await api('/api/models');
-    $modelStatus.textContent = Object.entries(data.models).map(([key, model]) =>
-      `${model.label}: ${model.exists ? 'arquivos encontrados' : 'não instalado'}\nPasta: ${model.path}${model.size_bytes ? `\nTamanho: ${(model.size_bytes / 1024 ** 3).toFixed(2)} GB` : ''}`
-    ).join('\n\n');
-  } catch (error) { $modelStatus.textContent = 'Não foi possível consultar os modelos: ' + error.message; }
+    for (const k of (key ? [key] : modelKeys)) {
+      const model = data.models[k], recognized = Boolean(model?.recognized), check = $(k + '-check');
+      check.textContent = recognized ? '✓ Modelo reconhecido' : '○ Não reconhecido';
+      check.className = recognized ? 'ai-recognized' : 'ai-missing';
+      $(k + '-info').textContent = 'Pasta: ' + model.path + '\n' + (model.size_bytes ? 'Tamanho: ' + (model.size_bytes / 1024 ** 3).toFixed(2) + ' GB' : 'Nenhum arquivo detectado');
+    }
+    $aiModalStatus.textContent = 'Verificação concluída.';
+  } catch (error) { $aiModalStatus.textContent = 'Erro ao consultar modelos: ' + error.message; }
 }
-
-$modelDownload?.addEventListener('click', async () => {
-  const model = $modelChoice.value;
-  $modelDownload.disabled = true;
-  $modelStatus.textContent = 'Baixando arquivos oficiais. Aguarde; o download pode levar bastante tempo...';
-  try {
-    const result = await api('/api/models/download', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model }),
-    });
-    $modelStatus.textContent = `Download concluído: ${result.model.label}\nPasta: ${result.model.path}`;
-    await refreshModelStatus();
-  } catch (error) {
-    $modelStatus.textContent = 'Falha no download: ' + error.message +
-      '\nVerifique a conexão, Git e os termos de acesso do modelo no Hugging Face.';
-  } finally { $modelDownload.disabled = false; }
-});
-
-$modelImport?.addEventListener('click', async () => {
-  const files = [...($modelFolder.files || [])];
-  if (!files.length) { $modelStatus.textContent = 'Selecione a pasta do modelo primeiro.'; return; }
-  const fd = new FormData();
-  fd.append('model', $modelChoice.value);
-  for (const file of files) fd.append('files', file, file.webkitRelativePath || file.name);
-  $modelImport.disabled = true;
-  $modelStatus.textContent = `Importando ${files.length} arquivo(s). Aguarde o envio...`;
-  try {
-    const result = await api('/api/models/import', { method: 'POST', body: fd });
-    $modelStatus.textContent = `Importação concluída: ${result.files_imported} arquivo(s)\nPasta: ${result.path}`;
-    $modelFolder.value = '';
-    await refreshModelStatus();
-  } catch (error) { $modelStatus.textContent = 'Falha na importação: ' + error.message; }
-  finally { $modelImport.disabled = false; }
-});
-$modelRefresh?.addEventListener('click', refreshModelStatus);
+for (const k of modelKeys) {
+  const downloadButton = $(k + '-download'), importButton = $(k + '-import'), folderInput = $(k + '-folder');
+  $(k + '-refresh')?.addEventListener('click', () => refreshModelStatus(k));
+  downloadButton?.addEventListener('click', async () => {
+    downloadButton.disabled = true; $aiModalStatus.textContent = 'Baixando ' + k + ' do GitHub/Hugging Face...';
+    try { const result = await api('/api/models/download', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({model:k})});
+      $aiModalStatus.textContent = 'Download concluído: ' + result.model.label + '\n' + result.model.path; await refreshModelStatus(k);
+    } catch (error) { $aiModalStatus.textContent = 'Falha no download: ' + error.message + '\nVerifique Git, conexão e licença/autenticação Hugging Face.'; }
+    finally { downloadButton.disabled = false; }
+  });
+  importButton?.addEventListener('click', async () => {
+    const files = [...(folderInput.files || [])]; if (!files.length) { $aiModalStatus.textContent = 'Selecione a pasta do modelo.'; return; }
+    const fd = new FormData(); fd.append('model', k); for (const file of files) fd.append('files', file, file.webkitRelativePath || file.name);
+    importButton.disabled = true; $aiModalStatus.textContent = 'Importando ' + files.length + ' arquivo(s)...';
+    try { const result = await api('/api/models/import', {method:'POST', body:fd});
+      $aiModalStatus.textContent = 'Importação concluída: ' + result.files_imported + ' arquivo(s)\n' + result.path; folderInput.value = ''; await refreshModelStatus(k);
+    } catch (error) { $aiModalStatus.textContent = 'Falha na importação: ' + error.message; }
+    finally { importButton.disabled = false; }
+  });
+}
 refreshModelStatus();
-
 // ---------- eventos ----------------------------------------------------------------------------
 $photo.addEventListener('change', e => {
   const f = e.target.files[0];
