@@ -23,7 +23,9 @@ def run_engine(key: str, image_path: str, output_dir: str) -> dict:
     response.raise_for_status()
     if "json" not in response.headers.get("content-type","").lower():
         path=out/(key+"_scene.bin"); path.write_bytes(response.content)
-        return {"engine":key,"label":cfg["label"],"kind":cfg["kind"],"local_artifact":str(path),"status":"generated"}
+        project_id=out.parents[1].name
+        return {"engine":key,"label":cfg["label"],"kind":cfg["kind"],"local_artifact":str(path),
+          "artifact_url":"/projects/"+project_id+"/world/"+key+"/"+path.name,"status":"generated"}
     data=response.json(); encoded=data.get("artifact_base64") or data.get("scene_base64")
     artifact_url=data.get("artifact_url") or data.get("scene_url"); local=None
     if encoded:
