@@ -154,7 +154,8 @@ async function loadPhotoAssets(meta, squareSize = 60) {
     floorTex.colorSpace = THREE.SRGBColorSpace;
   }
 
-  const trees = await Promise.all((meta?.trees || []).map(async info => {
+  const photoMeshes = [...(meta?.trees || []), ...(meta?.photo_objects || [])];
+  const trees = await Promise.all(photoMeshes.map(async info => {
     if (!info.model_url) return info;
     try {
       const gltf = await gltfLoader.loadAsync(info.model_url);
@@ -299,6 +300,8 @@ async function checkServer() {
     const warn = [];
     if (s.depth === 'missing') warn.push('Modelo de profundidade não instalado: pip install torch transformers.');
     if (s.ai && !s.ai.available) warn.push('Segmentação semântica indisponível no modo ' + s.ai.mode + '. Configure o modelo local ou HF_TOKEN para nuvem; o sistema usará o recorte OpenCV.');
+    if (s.image_to_3d?.mode === 'local' && !s.image_to_3d?.instantmesh?.local_configured) warn.push('InstantMesh local não configurado: defina INSTANTMESH_DIR e INSTANTMESH_PYTHON; árvores e objetos usarão billboards.');
+    if (s.image_to_3d?.mode === 'cloud' && !s.image_to_3d?.instantmesh?.remote_configured) warn.push('InstantMesh na nuvem requer INSTANTMESH_API_URL; sem endpoint, objetos usarão billboards.');
     if (!s.converter) warn.push('Blender não encontrado: o export gera só GLB e OBJ. Defina BLENDER=/caminho/blender.');
     setWarn(warn);
   } catch {
