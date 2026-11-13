@@ -55,7 +55,8 @@ def download_model(name: str):
         subprocess.run(cmd,check=True,timeout=3600)
     from huggingface_hub import snapshot_download
     # Each repository is kept in its own directory; Lyra checkpoints can be very large.
-    snapshot_download(repo_id=item["hf_repo"],local_dir=str(target/"checkpoints"))
+    weights_dir = target/("pretrained_weights" if name=="instantmesh" else "checkpoints")
+    snapshot_download(repo_id=item["hf_repo"],local_dir=str(weights_dir))
     return model_status()[name]
 
 def import_model_files(name: str, files):
