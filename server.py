@@ -39,6 +39,7 @@ import image_to_3d
 import model_manager
 import reconstruction_pipeline
 import model_comparator
+import world_models
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -415,6 +416,22 @@ def generate():
     return jsonify(id=pid, relief_url=f"/projects/{pid}/cenario.glb", meta=meta)
 
 
+
+
+@app.post("/api/world/reconstruct/<pid>")
+def reconstruct_world(pid):
+    """Run Lyra/VGGT scene services on the original project photograph."""
+    folder=project_dir(pid); photo=folder/"foto.jpg"
+    if not photo.is_file(): abort(404,"Foto original do projeto não encontrada.")
+    results=[]; failures={}
+    for key in ("lyra2","vggt"):
+        if os.getenv("PHOTO2GAME_ENABLE_"+key.upper(),"1").lower() in {"0","false","no","off"}: continue
+        try: results.append(world_models.run_engine(key,str(photo),str(folder/"world"/key)))
+        except Exception as exc: failures[key]=f"{type(exc).__name__}: {exc}"
+    meta_path=folder/"meta.json"; meta=json.loads(meta_path.read_text())
+    meta["world_reconstructions"]=results; meta["world_reconstruction_failures"]=failures
+    meta_path.write_text(json.dumps(meta))
+    return jsonify(results=results,failures=failures,message="Lyra produz mundos exploráveis; VGGT estima geometria e câmeras. Esses artefatos não são pontuados como malhas GLB de objetos.")
 
 @app.post("/api/reconstruction/select/<pid>")
 def select_reconstruction(pid):
