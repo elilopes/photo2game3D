@@ -17,6 +17,7 @@ CATALOG = {
     "hunyuan3d": {
         "label": "Hunyuan3D-2",
         "directory": "Hunyuan3D-2",
+        "repo": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git",
         "hf_repo": "tencent/Hunyuan3D-2",
     },
 }
@@ -46,8 +47,14 @@ def download_model(name: str):
         from huggingface_hub import snapshot_download
         snapshot_download(repo_id=item["hf_repo"], local_dir=str(target / "pretrained_weights"))
     else:
+        if not (target / "api_server.py").exists():
+            git = shutil.which("git")
+            if not git:
+                raise RuntimeError("Git não encontrado. Instale Git for Windows e tente novamente.")
+            subprocess.run([git, "clone", "--depth", "1", item["repo"], str(target)],
+                           check=True, timeout=1800)
         from huggingface_hub import snapshot_download
-        snapshot_download(repo_id=item["hf_repo"], local_dir=str(target))
+        snapshot_download(repo_id=item["hf_repo"], local_dir=str(target / "weights"))
     return model_status()[name]
 
 def import_model_files(name: str, files):
