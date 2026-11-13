@@ -513,9 +513,23 @@ async function refreshModelStatus(key = null) {
       check.textContent = recognized ? '✓ Modelo reconhecido' : '○ Não reconhecido';
       check.className = recognized ? 'ai-recognized' : 'ai-missing';
       $(k + '-info').textContent = 'Pasta: ' + model.path + '\n' + (model.size_bytes ? 'Tamanho: ' + (model.size_bytes / 1024 ** 3).toFixed(2) + ' GB' : 'Nenhum arquivo detectado');
+      const toggle = $('enable-' + k); if (toggle) toggle.checked = data.settings?.[k] !== false;
     }
     $aiModalStatus.textContent = 'Verificação concluída.';
   } catch (error) { $aiModalStatus.textContent = 'Erro ao consultar modelos: ' + error.message; }
+}
+for (const k of modelKeys) {
+  const toggle = $('enable-' + k);
+  toggle?.addEventListener('change', async () => {
+    toggle.disabled = true;
+    try {
+      const result = await api('/api/models/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({settings:{[k]:toggle.checked}})});
+      $aiModalStatus.textContent = (result.settings[k] ? 'Modelo habilitado: ' : 'Modelo desativado: ') + k + '. A alteração será aplicada às próximas reconstruções.';
+    } catch (error) {
+      toggle.checked = !toggle.checked;
+      $aiModalStatus.textContent = 'Não foi possível salvar a configuração de ' + k + ': ' + error.message;
+    } finally { toggle.disabled = false; }
+  });
 }
 for (const k of modelKeys) {
   const downloadButton = $(k + '-download'), importButton = $(k + '-import'), folderInput = $(k + '-folder');
