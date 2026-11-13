@@ -25,10 +25,6 @@ def _mode() -> str:
     return value if value in {"local", "cloud", "off"} else "local"
 
 
-def _truthy(name: str, default: str = "0") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
-
-
 def status() -> dict[str, Any]:
     mode = _mode()
     instant_dir = Path(os.getenv("INSTANTMESH_DIR", "models/InstantMesh"))
@@ -43,13 +39,14 @@ def status() -> dict[str, Any]:
             "provider": "http-api" if mode == "cloud" else "subprocess",
             "local_configured": instant_local,
             "remote_configured": instant_remote,
-            "ready": instant_remote if mode == "cloud" else instant_local,
+            "configured": instant_remote if mode == "cloud" else instant_local,
             "repository": "https://github.com/TencentARC/InstantMesh",
         },
         "hunyuan3d": {
             "provider": "http-api",
             "endpoint_configured": hy_remote,
-            "ready": hy_remote,
+            "configured": hy_remote,
+            "health_check": "not_performed",
             "endpoint": hy_url,
             "repository": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2",
             "license": "Tencent Hunyuan Community License (review terms before commercial use)",
