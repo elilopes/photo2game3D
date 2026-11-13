@@ -186,3 +186,59 @@ def generate_hunyuan3d(image: Image.Image, output_dir: str, name: str,
     if output.stat().st_size < 16 or output.read_bytes()[:4] != b"glTF":
         raise RuntimeError("Hunyuan3D não retornou um arquivo GLB válido.")
     return output
+
+# --- Optional reconstruction engines ---------------------------------------------------------
+def _local_runner(root_env: str, default_dir: str, python_env: str, script: str,
+                  image: Image.Image, output_dir: str, name: str, extra: list[str] | None = None) -> Path:
+    root=Path(os.getenv(root_env,default_dir)).resolve()
+    python=os.getenv(python_env,sys.executable)
+    if not (root/script).is_file(): raise RuntimeError(f"Repositório local não encontrado: {root/script}")
+    out=Path(output_dir); out.mkdir(parents=True,exist_ok=True)
+    source=out/f"{name}_input.png"; _white_background(image,(1024,1024)).save(source)
+    command=[python,str(root/script),str(source),"--output-dir",str(out/"output")]
+    command += extra or []
+    subprocess.run(command,cwd=str(root),check=True,timeout=int(os.getenv(root_env.replace("_DIR","_TIMEOUT"),"1800")))
+    choices=list((out/"output").rglob("*.glb"))+list((out/"output").rglob("*.obj"))
+    if not choices: raise RuntimeError(f"{script} concluiu sem produzir GLB/OBJ em {out/'output'}")
+    return _to_glb(choices[0],out/f"{name}.glb")
+
+def generate_triposr(image: Image.Image, output_dir: str, name: str) -> Path:
+    if _mode()=="off": raise RuntimeError("Motores Image-to-3D desativados.")
+    if os.getenv("TRIPOSR_API_URL"):
+        out=Path(output_dir); out.mkdir(parents=True,exist_ok=True)
+        return _remote_glb(os.environ["TRIPOSR_API_URL"],image,out/f"{name}.glb",
+          token=os.getenv("TRIPOSR_API_TOKEN",""),timeout=int(os.getenv("TRIPOSR_TIMEOUT","1800")),model="triposr")
+    root=Path(os.getenv("TRIPOSR_DIR","models/TripoSR")).resolve()
+    python=os.getenv("TRIPOSR_PYTHON",sys.executable)
+    runner=root/"run.py"
+    if not runner.is_file(): raise RuntimeError(f"TripoSR não encontrado: {runner}")
+    out=Path(output_dir); out.mkdir(parents=True,exist_ok=True)
+    source=out/f"{name}_input.png"; _white_background(image).save(source)
+    command=[python,str(runner),str(source),"--output-dir",str(out/"triposr_output"),"--model-save-format","glb"]
+    weights=os.getenv("TRIPOSR_WEIGHTS")
+    if weights: command += ["--pretrained-model-name-or-path",weights]
+    subprocess.run(command,cwd=str(root),check=True,timeout=int(os.getenv("TRIPOSR_TIMEOUT","1800")))
+    files=list((out/"triposr_output").rglob("*.glb"))+list((out/"triposr_output").rglob("*.obj"))
+    if not files: raise RuntimeError("TripoSR não produziu malha; verifique a versão do runner e o ambiente Python.")
+    return _to_glb(files[0],out/f"{name}.glb")
+
+def _configured_remote(key: str, image: Image.Image, output_dir: str, name: str) -> Path:
+    env=key.upper()+"_API_URL"; endpoint=os.getenv(env)
+    if not endpoint: raise RuntimeError(f"Configure {env} com o endpoint HTTP do motor.")
+    out=Path(output_dir); out.mkdir(parents=True,exist_ok=True)
+    return _remote_glb(endpoint,image,out/f"{name}.glb",token=os.getenv(key.upper()+"_API_TOKEN",""),
+      timeout=int(os.getenv(key.upper()+"_TIMEOUT","1800")),model=key)
+
+def generate_trellis2(image: Image.Image, output_dir: str, name: str) -> Path:
+    return _configured_remote("TRELLIS2",image,output_dir,name)
+
+def generate_hunyuan3d21(image: Image.Image, output_dir: str, name: str) -> Path:
+    # Hunyuan3D-2.1 has a different model/checkpoint and Python API from the old 2.0 adapter.
+    # Use a dedicated 2.1 service to avoid silently sending requests to an incompatible 2.0 server.
+    return _configured_remote("HUNYUAN3D21",image,output_dir,name)
+
+def generate_vggt(image: Image.Image, output_dir: str, name: str) -> Path:
+    return _configured_remote("VGGT",image,output_dir,name)
+
+def generate_lyra2(image: Image.Image, output_dir: str, name: str) -> Path:
+    return _configured_remote("LYRA2",image,output_dir,name)
