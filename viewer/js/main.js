@@ -494,6 +494,60 @@ for (const k of modelKeys) {
   });
 }
 refreshModelStatus();
+// ---------- verificação de dependências -------------------------------------------------------
+const $depsModal = $('deps-modal');
+function setDepsModal(open) {
+  $depsModal.classList.toggle('open', open);
+  if (open) runDependencyCheck();
+}
+$('check-dependencies-open')?.addEventListener('click', () => setDepsModal(true));
+$('deps-close')?.addEventListener('click', () => setDepsModal(false));
+$depsModal?.addEventListener('click', event => { if (event.target === $depsModal) setDepsModal(false); });
+$('deps-run')?.addEventListener('click', runDependencyCheck);
+document.addEventListener('keydown', event => { if (event.key === 'Escape') setDepsModal(false); });
+
+async function runDependencyCheck() {
+  const summary = $('deps-summary'), results = $('deps-results'), button = $('deps-run');
+  if (!summary || !results) return;
+  button.disabled = true;
+  summary.textContent = 'Verificando dependências no servidor...';
+  results.innerHTML = '';
+  try {
+    const report = await api('/api/dependencies');
+    summary.textContent = report.ok
+      ? '✓ Dependências obrigatórias encontradas · Python ' + report.python_version +
+        ' · ' + report.optional_missing + ' item(ns) opcional(is) ausente(s).'
+      : '⚠ ' + report.required_missing + ' dependência(s) obrigatória(s) ausente(s) · Python ' + report.python_version;
+    const group = document.createElement('div');
+    group.className = 'dep-group';
+    for (const item of report.checks) {
+      const row = document.createElement('div');
+      row.className = 'dep-row';
+      const left = document.createElement('div');
+      left.textContent = item.name + (item.required ? ' (obrigatória)' : ' (opcional)');
+      const right = document.createElement('div');
+      right.className = item.available ? 'dep-ok' : (item.required ? 'dep-fail' : 'muted');
+      right.textContent = item.available ? '✓ OK' : (item.required ? '✕ Ausente' : '○ Não instalado');
+      const detail = document.createElement('span');
+      detail.className = 'dep-detail';
+      detail.textContent = item.detail || '';
+      left.appendChild(detail);
+      row.append(left, right);
+      group.appendChild(row);
+    }
+    results.appendChild(group);
+    if (!report.ok) {
+      const missing = report.checks.filter(x => x.required && !x.available).map(x => x.name);
+      const hint = document.createElement('p');
+      hint.className = 'dep-fail';
+      hint.textContent = 'Instale/corrija os itens obrigatórios ausentes. Para pacotes Python, execute: pip install -r requirements.txt. Depois reinicie o servidor e verifique novamente.';
+      results.appendChild(hint);
+    }
+  } catch (error) {
+    summary.textContent = 'Não foi possível verificar: ' + error.message;
+  } finally { button.disabled = false; }
+}
+
 // ---------- eventos ----------------------------------------------------------------------------
 $photo.addEventListener('change', e => {
   const f = e.target.files[0];
