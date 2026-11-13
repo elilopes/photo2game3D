@@ -221,6 +221,7 @@ def generate_triposr(image: Image.Image, output_dir: str, name: str) -> Path:
     source=out/f"{name}_input.png"; _white_background(image).save(source)
     command=[python,str(runner),str(source),"--output-dir",str(out/"triposr_output"),"--model-save-format","glb"]
     weights=os.getenv("TRIPOSR_WEIGHTS")
+    if not weights and (root/"checkpoints").is_dir(): weights=str(root/"checkpoints")
     if weights: command += ["--pretrained-model-name-or-path",weights]
     subprocess.run(command,cwd=str(root),check=True,timeout=int(os.getenv("TRIPOSR_TIMEOUT","1800")))
     files=list((out/"triposr_output").rglob("*.glb"))+list((out/"triposr_output").rglob("*.obj"))
@@ -259,7 +260,8 @@ root,source,target=sys.argv[1:4]; sys.path.insert(0,root)
 from PIL import Image
 from trellis2.pipelines import Trellis2ImageTo3DPipeline
 import o_voxel
-pipeline=Trellis2ImageTo3DPipeline.from_pretrained("microsoft/TRELLIS.2-4B").cuda()
+model_path=os.path.join(root,"checkpoints")
+pipeline=Trellis2ImageTo3DPipeline.from_pretrained(model_path if os.path.isdir(model_path) else "microsoft/TRELLIS.2-4B").cuda()
 mesh=pipeline.run(Image.open(source).convert("RGB"))[0]
 mesh.simplify(16777216)
 glb=o_voxel.postprocess.to_glb(vertices=mesh.vertices,faces=mesh.faces,attr_volume=mesh.attrs,
@@ -281,7 +283,8 @@ root,source,target=sys.argv[1:4]
 sys.path.insert(0,root)
 from PIL import Image
 from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
-pipeline=Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2.1",subfolder="hunyuan3d-dit-v2-1")
+model_path=root+"/checkpoints"
+pipeline=Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(model_path if __import__("os").path.isdir(model_path) else "tencent/Hunyuan3D-2.1",subfolder="hunyuan3d-dit-v2-1")
 mesh=pipeline(image=Image.open(source).convert("RGB"))[0]
 mesh.export(target)
 '''
