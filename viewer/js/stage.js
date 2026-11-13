@@ -10,6 +10,7 @@ const pick = (o, keys) => J(keys.map(k => o[k]));
 
 function disposeTree(root) {
   root.traverse(o => {
+    if (o.userData.sharedAsset) return;
     if (o.geometry) o.geometry.dispose();
     if (o.material && !o.userData.sharedMaterial) {
       for (const m of [].concat(o.material)) { m.map?.dispose(); m.dispose(); }
