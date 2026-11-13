@@ -147,24 +147,36 @@ async function loadPanorama(url) {
 // meta.floor  = { url, width_m, depth_m }  (só presente se a foto tem chão)
 // meta.trees  = [ { url, width_m, height_m }, ... ] (pode ser [] ou ausente)
 async function loadPhotoAssets(meta, squareSize = 60) {
-  if (!meta?.floor) {
-    // Sem chão detectado: limpa qualquer piso anterior
+  const loader = new THREE.TextureLoader();
+  let floorTex = null;
+  if (meta?.floor?.url) {
+    floorTex = await loader.loadAsync(meta.floor.url);
+    floorTex.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  const trees = await Promise.all((meta?.trees || []).map(async info => {
+    if (!info.model_url) return info;
+    try {
+      const gltf = await gltfLoader.loadAsync(info.model_url);
+      return { ...info, model: gltf.scene };
+    } catch (error) {
+      console.warn('Falha ao carregar malha InstantMesh; usando fallback:', error);
+      return info;
+    }
+  }));
+
+  if (!floorTex && trees.length === 0) {
     stage.setSquare(null);
     return;
   }
-  const loader = new THREE.TextureLoader();
-  const floorTex = await loader.loadAsync(meta.floor.url);
-  floorTex.colorSpace = THREE.SRGBColorSpace;
-  const trees = meta.trees || [];
   stage.setSquare({
     floorTex,
-    widthM: meta.floor.width_m,
-    depthM: meta.floor.depth_m,
+    widthM: meta?.floor?.width_m || 0,
+    depthM: meta?.floor?.depth_m || 0,
     squareSize,
     trees,
   });
 }
-
 
 async function loadHouse(meta) {
   const info = meta?.house;
