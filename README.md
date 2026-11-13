@@ -218,3 +218,27 @@ Consulte `GET /api/status` para verificar o backend selecionado, disponibilidade
 - O proxy de fachada tem profundidade reduzida, evitando uma caixa exagerada com uma única fotografia aplicada na face frontal.
 
 > Limitação geométrica: uma única foto não revela as laterais, o fundo ou a geometria oculta da construção. A segmentação melhora a separação dos objetos, mas não substitui fotogrametria multi-view nem garante uma reconstrução volumétrica exata. O viewer, a física Rapier e a exportação continuam usando o pipeline Three.js/GLB existente.
+
+
+## Reconstrução volumétrica de edificações
+
+Quando a segmentação semântica encontra uma máscara de edifício, o backend também executa `building_reconstruction.py` e gera `semantica/edificacao_volumetrica.glb`. O GLB contém componentes geométricos separados:
+
+- paredes laterais e traseira, laje/fundação;
+- duas águas de telhado, cumeeira e beiral;
+- fachada frontal com material derivado da fotografia;
+- volumes de porta, batentes e maçaneta quando a análise de contornos identifica uma entrada;
+- volumes de vidro, caixilhos e divisórias quando são identificadas regiões semelhantes a janelas.
+
+O visualizador carrega esse GLB como uma edificação, aplica sombras e cria colisores com o sistema Rapier. A exportação da cena continua usando o GLB completo do viewer.
+
+**Importante:** em uma única fotografia, as faces laterais e traseiras, o interior e as superfícies ocultas não podem ser observados diretamente. O sistema estima essas partes proceduralmente a partir da fachada e da escala projetada. A detecção de portas e janelas é heurística e deve ser validada em fotografias variadas; ela não equivale a um levantamento arquitetônico ou a uma reconstrução fotogramétrica multi-view.
+
+## Inicialização pelo Windows
+
+Execute `iniciar_photo2game3d.bat` com duplo clique. O menu permite selecionar:
+
+1. **Local:** define `PHOTO2GAME_AI_MODE=local`, instala/verifica as dependências e executa o servidor. Os modelos são baixados no primeiro uso.
+2. **Nuvem:** solicita um token Hugging Face, define `PHOTO2GAME_AI_MODE=cloud` e executa o servidor. O token fica apenas no ambiente do processo e não é gravado no arquivo BAT.
+
+Também é possível configurar manualmente as variáveis de ambiente e executar `python server.py`.
