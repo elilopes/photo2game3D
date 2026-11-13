@@ -33,6 +33,8 @@ from mesh_builder import build_relief, sample_colors
 from panorama import build_panorama
 import scene_assets
 import photo_enhance
+import ai_reconstruction
+import building_reconstruction
 
 # No Windows o registro às vezes devolve text/plain para .js e o navegador recusa os módulos.
 mimetypes.add_type("text/javascript", ".js")
@@ -91,6 +93,7 @@ def index():
 @app.get("/api/status")
 def status():
     return jsonify(depth=depthmod.available_backend(),
+                   ai=ai_reconstruction.status(),
                    converter=converter_command(ROOT, ROOT) is not None,
                    enhance=photo_enhance.available_enhancements())
 
@@ -129,6 +132,15 @@ def generate():
         img.save(photo, quality=92)
         depth = depthmod.estimate_depth(str(photo))
         marca("profundidade (modelo de IA)")
+
+        semantic = None
+        try:
+            semantic = ai_reconstruction.analyze(img, str(proj / "semantica"))
+            meta_semantic = semantic
+            marca("segmentação semântica concluída")
+        except Exception as exc:
+            app.logger.warning("segmentação IA indisponível; usando fallback OpenCV: %s", exc)
+            meta_semantic = {"available": False, "error": str(exc), "requested_mode": ai_reconstruction.mode()}
         scene, info = build_relief(img, depth)
         (proj / "cenario.glb").write_bytes(scene.export(file_type="glb"))
         marca("relevo e exportação do GLB")
@@ -136,7 +148,7 @@ def generate():
         pano_info = build_panorama(img, suggest, str(proj / "panorama.jpg"))
         marca("cores e panorama")
         meta = dict(id=pid, relief=info, suggest=suggest, depth_backend=depthmod.available_backend(),
-                    panorama=f"/projects/{pid}/panorama.jpg", panorama_info=pano_info)
+                    ai_scene=meta_semantic, panorama=f"/projects/{pid}/panorama.jpg", panorama_info=pano_info)
 
         # Contexto da foto (rural/urban/beach/snow/mixed) — ajusta objetos no viewer
         try:
@@ -181,11 +193,21 @@ def generate():
             if context in ('urban', 'alpine', 'indoor', 'cave'):      # fachada verde / tufos de grama não são árvores; interior e caverna não têm
                 raise RuntimeError(f"extração de árvores pulada no contexto '{context}'")
             trees_dir = proj / "arvores"
-            tree_list = scene_assets.extract_trees(img, gl_veg, str(trees_dir), fov=fov)
-            meta["trees"] = [
-                dict(url=f"/projects/{pid}/arvores/{t['file']}", width_m=t["width_m"], height_m=t["height_m"])
-                for t in tree_list
-            ]
+            tree_list = ai_reconstruction.extract_trees(img, semantic, str(proj / "semantica"), fov=fov) if semantic else []
+            if tree_list:
+                meta["trees"] = [
+                    dict(url=f"/projects/{pid}/semantica/trees/{t['file']}",
+                         width_m=t["width_m"], height_m=t["height_m"],
+                         x_m=t["x_m"], z_m=t["z_m"], bbox=t["bbox"])
+                    for t in tree_list
+                ]
+            else:
+                tree_list = scene_assets.extract_trees(img, gl_veg, str(trees_dir), fov=fov)
+                meta["trees"] = [
+                    dict(url=f"/projects/{pid}/arvores/{t['file']}",
+                         width_m=t["width_m"], height_m=t["height_m"])
+                    for t in tree_list
+                ]
         except Exception as exc:
             app.logger.warning("extract_trees falhou: %s", exc)
 
@@ -193,10 +215,24 @@ def generate():
         # Casa principal da foto (recorte com transparência, usado como fachada 3D no viewer)
         try:
             gl_house = gl if gl is not None else int(img.size[1] * 0.73)
-            house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
-            if house:
-                meta["house"] = dict(url=f"/projects/{pid}/casa/{house['file']}", width_m=house["width_m"],
-                                     height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"])
+            building = building_reconstruction.build_building(
+                img, semantic, str(proj / "semantica"), fov=fov
+            ) if semantic else None
+            if building:
+                meta["house"] = dict(
+                    model_url=f"/projects/{pid}/semantica/{building['file']}",
+                    width_m=building["width_m"], height_m=building["height_m"],
+                    depth_m=building["depth_m"], dist=building["dist"], x_m=building["x_m"],
+                    bbox=building["bbox"], reconstruction=building["type"],
+                    components=building["components"], door_detected=building["door_detected"],
+                    windows_detected=building["windows_detected"]
+                )
+            else:
+                house = scene_assets.extract_house(img, gl_house, str(proj / "casa"), fov=fov)
+                if house:
+                    meta["house"] = dict(url=f"/projects/{pid}/casa/{house['file']}", width_m=house["width_m"],
+                                         height_m=house["height_m"], dist=house["dist"], x_m=house["x_m"],
+                                         segmentation="opencv", reconstruction="facade_proxy")
         except Exception as exc:
             app.logger.warning("extract_house falhou: %s", exc)
 

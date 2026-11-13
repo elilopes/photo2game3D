@@ -167,34 +167,51 @@ export class Stage {
     this.commitColliders();
   }
 
-  // Casa da foto como volume 3D: a face da frente é o recorte real; o resto é uma caixa de cor neutra.
-  // info = { url, width_m, height_m, dist, x_m } | null. Fica na posição da câmera da foto (origem).
+  // Edificação reconstruída: recebe um GLB volumétrico quando disponível.
+  // O recorte 2.5D antigo permanece apenas como fallback para projetos legados.
   setHouse(info) {
     removeColliders(this.rworld, this.cols.house || []);
     this.cols.house = [];
-    if (this.nodes.house) { this.nodes.house.removeFromParent(); disposeTree(this.nodes.house); this.nodes.house = null; }
+    if (this.nodes.house) {
+      this.nodes.house.removeFromParent();
+      disposeTree(this.nodes.house);
+      this.nodes.house = null;
+    }
     if (!info) return;
 
-    const depth = 6;
-    const tex = new THREE.TextureLoader().load(info.url);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const front = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.32, transparent: true, roughness: 0.9 });
-    const side = new THREE.MeshStandardMaterial({ color: 0xc9a58a, roughness: 0.9 });
-    const mats = [side, side, side, side, front, side];   // ordem: +x, -x, +y, -y, +z (frente), -z
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(info.width_m, info.height_m, depth), mats);
-    mesh.name = 'casa_foto';
-    mesh.position.set(info.x_m, info.height_m / 2, -info.dist - depth / 2);   // face da frente voltada para a câmera
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
     const group = new THREE.Group();
-    group.name = 'casa_foto';
-    group.add(mesh);
+    group.name = 'edificacao_reconstruida';
+
+    if (info.model) {
+      group.add(info.model);
+      group.position.set(info.x_m || 0, 0, -(info.dist || 0));
+      group.userData.reconstruction = info.reconstruction || 'procedural_volumetric';
+    } else if (info.url) {
+      const depth = Math.max(0.35, Math.min(0.9, info.width_m * 0.06));
+      const tex = new THREE.TextureLoader().load(info.url);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const front = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.32, transparent: true, roughness: 0.9 });
+      const side = new THREE.MeshStandardMaterial({ color: 0xc9a58a, roughness: 0.9 });
+      const mats = [side, side, side, side, front, side];
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(info.width_m, info.height_m, depth), mats);
+      mesh.position.set(0, info.height_m / 2, 0);
+      group.add(mesh);
+      group.position.set(info.x_m || 0, 0, -(info.dist || 0) - depth / 2);
+    } else {
+      return;
+    }
+
+    group.traverse(o => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
     this.scene.add(group);
     this.nodes.house = group;
-
     group.updateWorldMatrix(true, true);
     this.cols.house = addMeshColliders(this.rworld, group);
-    this.pending.walls = true;   // força o step em commitColliders()
+    this.pending.walls = true;
     this.commitColliders();
   }
 

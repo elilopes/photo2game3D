@@ -165,6 +165,18 @@ async function loadPhotoAssets(meta, squareSize = 60) {
   });
 }
 
+
+async function loadHouse(meta) {
+  const info = meta?.house;
+  if (!info) { stage.setHouse(null); return; }
+  if (info.model_url) {
+    const gltf = await gltfLoader.loadAsync(info.model_url);
+    stage.setHouse({ ...info, model: gltf.scene });
+  } else {
+    stage.setHouse(info); // compatibilidade com projetos antigos
+  }
+}
+
 // Envia a foto com progresso de upload (XHR, porque fetch não expõe progresso de envio).
 function postWithProgress(url, fd, onProgress) {
   return new Promise((resolve, reject) => {
@@ -204,7 +216,7 @@ async function uploadPhoto(file) {
   await loadRelief(data.relief_url, data.meta.relief);
   stage.setPanorama(null);   // céu só com degradê; panorama da foto removido
   await loadPhotoAssets(data.meta);
-  stage.setHouse(data.meta.house || null);   // casa recortada da foto (fachada 3D)
+  await loadHouse(data.meta);   // GLB volumétrico ou fallback legado
 
   const next = newState(data.meta.suggest);
   // Quando há chão quadrado, desliga o terreno procedural e o relevo (evita "parede de foto")
@@ -220,7 +232,7 @@ async function uploadPhoto(file) {
   if (data.meta.house) next.objects = next.objects.filter(o => o.type !== 'house' && o.type !== 'rowhouse');   // a casa da foto substitui as genéricas
   setProject(next, data.id);
   replaceUrl(data.id);
-  setStatus(`Ambiente pronto · ${S.objects.length} objetos · profundidade: ${data.meta.depth_backend}`);
+  setStatus(`Ambiente pronto · ${S.objects.length} objetos · profundidade: ${data.meta.depth_backend} · segmentação: ${data.meta.ai_scene?.provider || 'OpenCV (fallback)'}`);
   $links.innerHTML = '';
 }
 
@@ -230,7 +242,7 @@ async function openProject(id) {
   await loadRelief(`/projects/${id}/cenario.glb`, meta?.relief);
   stage.setPanorama(null);   // céu só com degradê
   await loadPhotoAssets(meta);
-  stage.setHouse(meta?.house || null);
+  await loadHouse(meta);
   const next = saved ? migrate(saved) : newState(meta?.suggest);
   if (!saved) {
     if (meta?.floor) {
@@ -274,6 +286,7 @@ async function checkServer() {
     const s = await api('/api/status');
     const warn = [];
     if (s.depth === 'missing') warn.push('Modelo de profundidade não instalado: pip install torch transformers.');
+    if (s.ai && !s.ai.available) warn.push('Segmentação semântica indisponível no modo ' + s.ai.mode + '. Configure o modelo local ou HF_TOKEN para nuvem; o sistema usará o recorte OpenCV.');
     if (!s.converter) warn.push('Blender não encontrado: o export gera só GLB e OBJ. Defina BLENDER=/caminho/blender.');
     setWarn(warn);
   } catch {

@@ -15,3 +15,6 @@ transformers
 # Opcional: outpainting das laterais por difusão (PHOTO2GAME_OUTPAINT=sd)
 # diffusers
 # accelerate
+
+# Optional client for cloud semantic segmentation
+huggingface_hub
